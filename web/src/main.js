@@ -6,7 +6,15 @@
 import { DEFAULT_PARAMS } from './audio/params.js';
 import { startMic, MicError } from './audio/mic.js';
 import { PITCH_CLASS_NAMES } from './audio/chroma.js';
-import { filterByHand, parseMidi } from './song/midi.js';
+import {
+  DIFFICULTIES,
+  FULL,
+  MELODY,
+  applyDifficulty,
+  filterByHand,
+  maxNotesPerStep,
+  parseMidi,
+} from './song/midi.js';
 import { PianoRoll } from './render/pianoroll.js';
 import { PLAY, PracticeSession, WAIT } from './session/session.js';
 
@@ -15,6 +23,7 @@ const $ = (id) => document.getElementById(id);
 const TEMPO_KEY = 'piano-coach.tempo';
 const MODE_KEY = 'piano-coach.mode';
 const RESPONSE_KEY = 'piano-coach.response';
+const DIFFICULTY_KEY = 'piano-coach.difficulty';
 
 const state = {
   catalogue: [],
@@ -28,6 +37,7 @@ const state = {
   tempo: 1.0,
   mode: WAIT,
   responseMs: 175,
+  difficulty: FULL,
   useMic: false,
 };
 
@@ -83,6 +93,11 @@ async function selectBundled(entry, button) {
   }
 }
 
+/** The single path from a parsed file to the song actually played. */
+function derive(parsed) {
+  return applyDifficulty(filterByHand(parsed, state.hand), state.difficulty);
+}
+
 function select(song) {
   state.selected = song;
   $('start-mic').disabled = false;
@@ -92,9 +107,20 @@ function select(song) {
   // user is still looking at the list — instead of on a black session screen.
   try {
     const parsed = parseMidi(song.buffer, song.name);
-    const steps = filterByHand(parsed, state.hand).steps.length;
+    const derived = derive(parsed);
+    const density = maxNotesPerStep(derived);
+    // Density is the number that predicts "why won't it advance": every note of
+    // a step has to sound at once, so a 5 here means five keys together.
+    const densityNote =
+      density > 2 && state.difficulty !== MELODY
+        ? ` — up to ${density} notes at once, try Melody if that is a lot`
+        : density > 1
+          ? ` — up to ${density} notes at once`
+          : '';
+    const handPhrase = state.hand === 'both' ? 'both hands' : `the ${state.hand} hand`;
     $('start-hint').textContent =
-      `${song.name} — ${parsed.notes.length} notes, ${steps} steps for the ${state.hand} hand.`;
+      `${song.name} — ${parsed.notes.length} notes, ${derived.steps.length} steps ` +
+      `for ${handPhrase}${densityNote}.`;
     $('mic-error').hidden = true;
   } catch (err) {
     $('start-hint').textContent = '';
@@ -125,10 +151,55 @@ function buildMeter() {
 }
 
 let meterBins = [];
+let targetChips = [];
+
+/**
+ * Render "Play  C ● E ○ G ○" for the current step.
+ *
+ * Pitch classes, not C4/C6: the verifier only ever compares pitch classes, so
+ * printing an octave here would promise a precision the detector does not have
+ * — and reading an octave off the keyboard is exactly what made a dense chord
+ * look like an octave bug. Where to put your hands stays on the keyboard, which
+ * is the part that does care.
+ */
+function renderTarget(step) {
+  const el = $('target');
+  el.innerHTML = '';
+  targetChips = [];
+  if (!step) return;
+
+  const lead = document.createElement('span');
+  lead.className = 'lead';
+  lead.textContent = 'Play';
+  el.append(lead);
+
+  for (const pc of step.pitchClasses) {
+    const chip = document.createElement('span');
+    chip.className = 'pc';
+    chip.innerHTML =
+      `<span class="dot">○</span><span>${PITCH_CLASS_NAMES[pc]}</span>`;
+    el.append(chip);
+    targetChips.push({ pc, chip, dot: chip.querySelector('.dot') });
+  }
+}
+
+/** Fill in the pitch classes currently sounding, so a stalled step shows what
+ *  it is still waiting for rather than just refusing. */
+function updateTargetChips(chroma, presentThresh) {
+  if (!targetChips.length) return;
+  let peak = 0;
+  for (let i = 0; i < 12; i++) if (chroma[i] > peak) peak = chroma[i];
+  const level = presentThresh * peak;
+  for (const { pc, chip, dot } of targetChips) {
+    const on = peak > 0 && chroma[pc] >= level;
+    chip.classList.toggle('on', on);
+    dot.textContent = on ? '●' : '○';
+  }
+}
 
 async function beginSession({ useMic }) {
   const parsed = parseMidi(state.selected.buffer, state.selected.name);
-  const song = filterByHand(parsed, state.hand);
+  const song = derive(parsed);
 
   if (!song.steps.length) {
     showError(`That song has no notes for the ${state.hand} hand. Try another hand.`);
@@ -168,6 +239,7 @@ async function beginSession({ useMic }) {
   state.session = new PracticeSession(song, params, {
     onStep: (step, { verifiable }) => {
       state.roll.setStep(step.index);
+      renderTarget(step);
       updateProgress();
       if (!verifiable) {
         setStatus('extra', 'Out of detectable range — skip it');
@@ -242,6 +314,7 @@ function setStatus(kind, text) {
 
 function updateMeter(frame) {
   const chroma = frame.chroma;
+  updateTargetChips(chroma, state.session?.params?.presentThresh ?? 0.35);
   let peak = 0;
   for (let i = 0; i < 12; i++) if (chroma[i] > peak) peak = chroma[i];
 
@@ -369,6 +442,24 @@ function setResponse(ms, { persist = true } = {}) {
   }
 }
 
+function setDifficulty(level, { persist = true } = {}) {
+  state.difficulty = DIFFICULTIES.includes(level) ? level : FULL;
+  for (const b of document.querySelectorAll('#difficulty-select button')) {
+    const on = b.dataset.level === state.difficulty;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', String(on));
+  }
+  // Re-derive so the song info line reflects the new density immediately.
+  if (state.selected) select(state.selected);
+  if (persist) {
+    try { localStorage.setItem(DIFFICULTY_KEY, state.difficulty); } catch { /* private mode */ }
+  }
+}
+
+for (const button of document.querySelectorAll('#difficulty-select button')) {
+  button.addEventListener('click', () => setDifficulty(button.dataset.level));
+}
+
 $('tempo').addEventListener('input', (event) => setTempo(Number(event.target.value)));
 $('response').addEventListener('change', (event) => setResponse(Number(event.target.value)));
 
@@ -384,10 +475,12 @@ try {
   setMode(localStorage.getItem(MODE_KEY) ?? WAIT, { persist: false });
   const savedResponse = Number(localStorage.getItem(RESPONSE_KEY));
   setResponse([125, 175, 250].includes(savedResponse) ? savedResponse : 175, { persist: false });
+  setDifficulty(localStorage.getItem(DIFFICULTY_KEY) ?? FULL, { persist: false });
 } catch {
   setTempo(100, { persist: false });
   setMode(WAIT, { persist: false });
   setResponse(175, { persist: false });
+  setDifficulty(FULL, { persist: false });
 }
 
 window.addEventListener('keydown', (event) => {

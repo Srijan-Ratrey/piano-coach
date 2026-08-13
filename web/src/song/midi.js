@@ -193,6 +193,75 @@ export function filterByHand(song, hand) {
   return { ...song, notes, steps: groupIntoSteps(notes) };
 }
 
+export const FULL = 'full';
+export const SIMPLE = 'simple';
+export const MELODY = 'melody';
+
+export const DIFFICULTIES = [MELODY, SIMPLE, FULL];
+
+/**
+ * Thin the notes of each step — DECISIONS' per-hand difficulty, and PLAN build
+ * order step 7: "difficulty thins the notes shown for that hand (Easy =
+ * melody/fewer -> full)".
+ *
+ * Its stated purpose is easing a learner in, but the sharper one is making
+ * third-party MIDI playable at all. The verifier requires EVERY pitch class of
+ * a step to sound before it advances, so a downloaded arrangement with
+ * five-note right-hand chords is not merely hard, it is unclearable one note at
+ * a time — and dense chords are also where detection is weakest, since more
+ * notes spread the normalised chroma thinner and collide more overtones.
+ *
+ *   melody  one note per step: the highest for the right hand, the lowest for
+ *           the left. That is the melody and the bass respectively, and it
+ *           matches the inner/outer reasoning in `assignChordFingers`.
+ *   simple  at most two — the outer voices, keeping the harmonic frame.
+ *   full    everything.
+ *
+ * Notes are removed rather than dimmed, per PLAN's "filter which of that hand's
+ * notes are shown".
+ */
+export function applyDifficulty(song, level) {
+  if (level === FULL || !level) return song;
+  const keep = level === MELODY ? 1 : 2;
+
+  const kept = [];
+  for (const step of song.steps) {
+    for (const hand of [RIGHT, LEFT]) {
+      const inHand = step.notes.filter((n) => n.hand === hand);
+      if (inHand.length === 0) continue;
+
+      // Sort outward from the hand's "inner" voice: the right hand's melody is
+      // its top note, the left hand's foundation is its bottom note.
+      const ordered = [...inHand].sort((a, b) =>
+        hand === RIGHT ? b.midi - a.midi : a.midi - b.midi,
+      );
+      if (keep === 1) {
+        kept.push(ordered[0]);
+      } else {
+        // Outer voices: the extreme in each direction, which preserves the
+        // harmonic frame better than taking the top two.
+        const lowest = inHand.reduce((a, b) => (a.midi <= b.midi ? a : b));
+        const highest = inHand.reduce((a, b) => (a.midi >= b.midi ? a : b));
+        kept.push(highest);
+        if (lowest !== highest) kept.push(lowest);
+      }
+    }
+  }
+
+  kept.sort((a, b) => a.time - b.time || a.midi - b.midi);
+  // Regroup rather than editing steps in place: fingering walks the melodic
+  // line, and a thinned line is a different line, so it has to be re-derived.
+  return { ...song, notes: kept, steps: groupIntoSteps(kept) };
+}
+
+/** Largest number of notes in any single step — the density that decides
+ *  whether a file is playable as written. */
+export function maxNotesPerStep(song) {
+  let max = 0;
+  for (const step of song.steps) max = Math.max(max, step.midiNotes.length);
+  return max;
+}
+
 /**
  * The target the verifier is asked about for a step.
  *

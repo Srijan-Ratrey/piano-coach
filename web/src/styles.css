@@ -231,6 +231,30 @@ button.ghost:hover { color: var(--text); border-color: #37414f; }
 .status-dot.extra   { background: var(--bad); }
 .status-dot.ok      { background: var(--ok); }
 
+.target {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.target .lead { color: var(--dim); }
+
+.target .pc {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--dim);
+}
+
+/* Filled = that pitch class is sounding right now. The point of the readout is
+   that a stalled step becomes self-explanatory: the open circles are what it
+   is still waiting for. */
+.target .pc.on { color: var(--ok); }
+.target .pc .dot { font-size: 10px; }
+
 .meter { display: flex; align-items: flex-end; gap: 2px; height: 26px; }
 
 .meter .bin {
@@ -285,8 +309,12 @@ button.ghost:hover { color: var(--text); border-color: #37414f; }
 
 /* The controls row is dense. The meter is a diagnostic, so it is the first
    thing to go when the width runs out — the transport must stay reachable. */
-@media (max-width: 1180px) {
+@media (max-width: 1320px) {
   .meter { display: none; }
+}
+
+@media (max-width: 1080px) {
+  .target .lead { display: none; }
 }
 
 @media (max-width: 980px) {

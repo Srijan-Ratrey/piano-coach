@@ -18,7 +18,17 @@ import { dirname, join } from 'node:path';
 
 import { DEFAULT_PARAMS } from '../src/audio/params.js';
 import { midiToHz } from '../src/audio/chroma.js';
-import { filterByHand, groupIntoSteps, parseMidi, targetForStep } from '../src/song/midi.js';
+import {
+  FULL,
+  MELODY,
+  SIMPLE,
+  applyDifficulty,
+  filterByHand,
+  groupIntoSteps,
+  maxNotesPerStep,
+  parseMidi,
+  targetForStep,
+} from '../src/song/midi.js';
 import {
   GRACE_SECONDS,
   LEAD_IN_SECONDS,
@@ -436,5 +446,116 @@ describe('play-along mode', () => {
       session.songTime <= session.currentStep.time + 1e-9,
       'the clock must not be left past the step the roll is waiting on',
     );
+  });
+});
+
+describe('per-hand difficulty (note thinning)', () => {
+  /** A dense right-hand arrangement: four-note chords, like a downloaded .mid. */
+  function denseSong() {
+    const notes = [];
+    const chords = [
+      [60, 64, 67, 72],
+      [62, 65, 69, 74],
+      [64, 67, 71, 76],
+    ];
+    chords.forEach((chord, i) => {
+      for (const midi of chord) {
+        notes.push({ midi, time: i * 1.0, duration: 0.8, hand: 'right' });
+      }
+    });
+    return { name: 'dense', notes, steps: groupIntoSteps(notes) };
+  }
+
+  test('full is the default and changes nothing', () => {
+    const song = denseSong();
+    const same = applyDifficulty(song, FULL);
+    assert.equal(same.steps.length, song.steps.length);
+    assert.deepEqual(
+      same.steps.map((s) => s.midiNotes),
+      song.steps.map((s) => s.midiNotes),
+    );
+    assert.equal(applyDifficulty(song, undefined), song, 'no level means no thinning');
+  });
+
+  test('melody keeps exactly one note per step — the highest, for the right hand', () => {
+    const thin = applyDifficulty(denseSong(), MELODY);
+    assert.deepEqual(thin.steps.map((s) => s.midiNotes), [[72], [74], [76]]);
+    for (const step of thin.steps) assert.equal(step.pitchClasses.length, 1);
+  });
+
+  test('melody keeps the LOWEST note for the left hand', () => {
+    const notes = [55, 59, 62, 67].map((midi) => ({
+      midi, time: 0, duration: 1, hand: 'left',
+    }));
+    const song = { name: 'l', notes, steps: groupIntoSteps(notes) };
+    assert.deepEqual(applyDifficulty(song, MELODY).steps[0].midiNotes, [55]);
+  });
+
+  test('simplified keeps the outer voices, not the top two', () => {
+    const thin = applyDifficulty(denseSong(), SIMPLE);
+    assert.deepEqual(thin.steps.map((s) => s.midiNotes), [[60, 72], [62, 74], [64, 76]]);
+  });
+
+  test('each hand is thinned independently when both are present', () => {
+    const notes = [
+      { midi: 48, time: 0, duration: 1, hand: 'left' },
+      { midi: 55, time: 0, duration: 1, hand: 'left' },
+      { midi: 64, time: 0, duration: 1, hand: 'right' },
+      { midi: 72, time: 0, duration: 1, hand: 'right' },
+    ];
+    const song = { name: 'b', notes, steps: groupIntoSteps(notes) };
+    // Left keeps its lowest (48), right keeps its highest (72).
+    assert.deepEqual(applyDifficulty(song, MELODY).steps[0].midiNotes, [48, 72]);
+  });
+
+  test('fingering is re-derived for the thinned line, not inherited', () => {
+    const thin = applyDifficulty(denseSong(), MELODY);
+    // The thinned line is 72 -> 74 -> 76, a rising step each time, so the
+    // contour heuristic must number it 1,2,3. Inheriting the full texture's
+    // chord fingering would have left every note on 1.
+    assert.deepEqual(thin.steps.map((s) => s.notes[0].finger), [1, 2, 3]);
+  });
+
+  test('maxNotesPerStep reports the density that predicts a stall', () => {
+    assert.equal(maxNotesPerStep(denseSong()), 4);
+    assert.equal(maxNotesPerStep(applyDifficulty(denseSong(), MELODY)), 1);
+  });
+});
+
+describe('the reported failure: a dense step will not clear one note at a time', () => {
+  function denseFourNoteSong() {
+    const notes = [60, 64, 67, 72].map((midi) => ({
+      midi, time: 0, duration: 2.0, hand: 'right',
+    }));
+    return { name: 'dense', notes, steps: groupIntoSteps(notes) };
+  }
+
+  test('at full, playing ONE note of a four-note step does not advance', () => {
+    // This is the reported symptom, pinned as intended behaviour rather than
+    // an accident: every pitch class of the step must sound together.
+    const session = new PracticeSession(denseFourNoteSong(), DEFAULT_PARAMS, {});
+    session.start();
+    feed(session, renderStep([72]));
+    assert.equal(session.stepIndex, 0, 'one note of a chord must not clear it');
+  });
+
+  test('the same step at melody difficulty clears from that single note', () => {
+    const song = applyDifficulty(denseFourNoteSong(), MELODY);
+    assert.deepEqual(song.steps[0].midiNotes, [72], 'thinned to the melody note');
+
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.start();
+    feed(session, renderStep([72]));
+    assert.equal(session.confirmedCount, 1, 'and now one note is enough');
+  });
+
+  test('octave is irrelevant — the melody note clears from a different octave', () => {
+    // Why the report could not have been an octave problem: the verifier
+    // compares pitch classes, so C5 and C6 are the same question.
+    const song = applyDifficulty(denseFourNoteSong(), MELODY);
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.start();
+    feed(session, renderStep([60])); // C4 against a C5 target
+    assert.equal(session.confirmedCount, 1, 'any octave of the right pitch class counts');
   });
 });

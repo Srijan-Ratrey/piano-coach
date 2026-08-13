@@ -38,6 +38,22 @@
           Starting with one hand is the recommendation in DECISIONS&nbsp;C &mdash; one
           stream, one verification target.
         </p>
+
+        <h2 style="margin-top:18px">How much of it?</h2>
+        <div class="segmented" id="difficulty-select" role="radiogroup" aria-label="Difficulty">
+          <button role="radio" data-level="melody" aria-checked="false"
+                  title="One note per step — the melody">Melody</button>
+          <button role="radio" data-level="simple" aria-checked="false"
+                  title="At most two notes per step — the outer voices">Simplified</button>
+          <button role="radio" data-level="full" aria-checked="true" class="on"
+                  title="Every note as written">Full</button>
+        </div>
+        <p class="hint">
+          Every note of a step must sound before it advances, so a downloaded
+          arrangement with big chords can be unclearable one note at a time.
+          Thinning is the way through &mdash; and dense chords are where detection
+          is weakest anyway.
+        </p>
       </section>
 
       <section class="panel">
@@ -83,6 +99,9 @@
         <div class="status" id="status">
           <span class="status-dot" id="status-dot"></span>
           <span id="status-text">Waiting&hellip;</span>
+        </div>
+
+        <div class="target" id="target" title="Every one of these must sound before the step advances. Any octave counts.">
         </div>
 
         <div class="meter" id="meter" title="Live chroma — the 12 pitch classes">
