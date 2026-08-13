@@ -1,10 +1,16 @@
 /**
  * The piano-roll: note bars falling onto a keyboard along the bottom edge.
  *
- * In wait-mode there is no clock. The scroll position IS the current step's
- * time, so the view freezes on the step being waited for and glides forward
- * when it is confirmed. That is the whole visual grammar of the mode — nothing
- * moves until the player plays.
+ * The renderer does not own time. `setScroll(songTime)` is fed the session's
+ * clock every frame and the view tracks it exactly — no easing here.
+ *
+ * That is deliberate. This file used to ease scroll toward the current step
+ * with a fixed time constant, which made every transition take about the same
+ * time no matter how far apart the notes were, so the motion carried no
+ * rhythm. Pacing is a property of the music, so it lives with the step logic in
+ * `session/session.js`; forward motion arrives here already rate-limited. A
+ * backward jump (Back, Restart, loop wrap) snaps, which is what a deliberate
+ * navigation should do.
  *
  * A bar's BOTTOM edge is its start time, and it extends upward by its
  * duration, so the moment a bar's bottom touches the line is the moment that
@@ -25,6 +31,8 @@ export const THEME = {
   left: '#4aa3ff',
   leftDim: 'rgba(74, 163, 255, 0.30)',
   done: 'rgba(120, 132, 148, 0.30)',
+  missed: 'rgba(240, 101, 90, 0.26)',
+  missedKey: '#5d2b28',
   whiteKey: '#e9edf3',
   blackKey: '#171c24',
   keyEdge: '#0d1117',
@@ -47,13 +55,14 @@ export class PianoRoll {
     this.ctx = canvas.getContext('2d');
     this.song = song;
 
-    // Scroll is measured in song-seconds and tweened toward the current step,
-    // rather than snapping, so an advance reads as motion instead of a jump.
+    // Song-seconds, fed from the session clock each frame.
     this.scroll = song.steps.length ? song.steps[0].time : 0;
-    this.scrollTarget = this.scroll;
     this.currentStepIndex = 0;
     this.matchedKeys = new Map();
+    this.missedKeys = new Map();
+    this.missedSteps = new Set();
     this.flash = 0;
+    this.missFlash = 0;
 
     this._resize();
   }
@@ -85,8 +94,11 @@ export class PianoRoll {
 
   setStep(index) {
     this.currentStepIndex = index;
-    const step = this.song.steps[index];
-    if (step) this.scrollTarget = step.time;
+  }
+
+  /** Track the session clock. Song-seconds. */
+  setScroll(songTime) {
+    this.scroll = songTime;
   }
 
   /** Called when a step is confirmed, to flash the matched keys. */
@@ -95,13 +107,32 @@ export class PianoRoll {
     this.matchedKeys = new Map(midiNotes.map((m) => [m, THEME.hitLine]));
   }
 
+  /**
+   * Play mode: a step that went by unplayed.
+   *
+   * The bar tint alone is nearly useless as feedback — a step is only declared
+   * missed a grace period AFTER it crosses the line, by which point the bar is
+   * mostly clipped under the keyboard. So the miss is flashed on the *keys*,
+   * which are stationary and where the player's eyes already are.
+   */
+  markMissed(index, midiNotes = []) {
+    this.missedSteps.add(index);
+    this.missFlash = 1;
+    this.missedKeys = new Map(midiNotes.map((m) => [m, THEME.missedKey]));
+  }
+
+  clearMissed() {
+    this.missedSteps.clear();
+    this.missedKeys = new Map();
+    this.missFlash = 0;
+  }
+
   tick(dt) {
-    // Fast enough not to feel laggy, slow enough that the eye can follow which
-    // bar just left.
-    const k = 1 - Math.exp(-dt * 11);
-    this.scroll += (this.scrollTarget - this.scroll) * k;
     this.flash = Math.max(0, this.flash - dt * 3);
     if (this.flash === 0) this.matchedKeys = new Map();
+
+    this.missFlash = Math.max(0, (this.missFlash ?? 0) - dt * 1.6);
+    if (this.missFlash === 0 && this.missedKeys?.size) this.missedKeys = new Map();
   }
 
   draw() {
@@ -123,14 +154,15 @@ export class PianoRoll {
       if (step.endTime < visibleFrom || step.time > visibleTo) continue;
       const isCurrent = step.index === this.currentStepIndex;
       const isPast = step.index < this.currentStepIndex;
+      const isMissed = this.missedSteps.has(step.index);
       for (const note of step.notes) {
-        this._drawNote(ctx, note, hitY, isCurrent, isPast);
+        this._drawNote(ctx, note, hitY, isCurrent, isPast, isMissed);
       }
     }
 
     this._drawHitLine(ctx, hitY, width);
 
-    const highlighted = new Map(this.matchedKeys);
+    const highlighted = new Map([...this.missedKeys, ...this.matchedKeys]);
     if (currentStep) {
       for (const note of currentStep.notes) {
         if (!highlighted.has(note.midi)) {
@@ -152,7 +184,7 @@ export class PianoRoll {
     }
   }
 
-  _drawNote(ctx, note, hitY, isCurrent, isPast) {
+  _drawNote(ctx, note, hitY, isCurrent, isPast, isMissed = false) {
     const kb = this.keyboard;
     if (!kb.contains(note.midi)) return;
 
@@ -168,7 +200,8 @@ export class PianoRoll {
     if (bottom < 0 || top > hitY) return;
 
     let colour;
-    if (isPast) colour = THEME.done;
+    if (isMissed) colour = THEME.missed;
+    else if (isPast) colour = THEME.done;
     else if (note.hand === RIGHT) colour = isCurrent ? THEME.right : THEME.rightDim;
     else colour = isCurrent ? THEME.left : THEME.leftDim;
 

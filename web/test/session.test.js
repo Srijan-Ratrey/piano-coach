@@ -19,7 +19,13 @@ import { dirname, join } from 'node:path';
 import { DEFAULT_PARAMS } from '../src/audio/params.js';
 import { midiToHz } from '../src/audio/chroma.js';
 import { filterByHand, groupIntoSteps, parseMidi, targetForStep } from '../src/song/midi.js';
-import { WaitModeSession } from '../src/session/waitmode.js';
+import {
+  GRACE_SECONDS,
+  LEAD_IN_SECONDS,
+  PLAY,
+  PracticeSession,
+  WAIT,
+} from '../src/session/session.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const midiDir = join(here, '..', 'public', 'midi');
@@ -133,7 +139,7 @@ describe('MIDI parsing and step grouping', () => {
 describe('wait-mode loop against synthetic playing', () => {
   test('playing the right notes advances the step', () => {
     const song = loadSong('scale-and-chords.mid');
-    const session = new WaitModeSession(song, DEFAULT_PARAMS, {});
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
     session.start();
 
     const first = session.currentStep;
@@ -146,7 +152,7 @@ describe('wait-mode loop against synthetic playing', () => {
 
   test('playing the WRONG notes does not advance', () => {
     const song = loadSong('scale-and-chords.mid');
-    const session = new WaitModeSession(song, DEFAULT_PARAMS, {});
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
     session.start();
 
     // The song opens on C4; play F#4 + A#4, sharing no pitch class with it.
@@ -157,7 +163,7 @@ describe('wait-mode loop against synthetic playing', () => {
 
   test('silence does not advance', () => {
     const song = loadSong('scale-and-chords.mid');
-    const session = new WaitModeSession(song, DEFAULT_PARAMS, {});
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
     session.start();
     feed(session, new Float64Array(SR * 2));
     assert.equal(session.stepIndex, 0);
@@ -166,7 +172,7 @@ describe('wait-mode loop against synthetic playing', () => {
   test('a run of correct steps plays through in order', () => {
     const song = loadSong('scale-and-chords.mid');
     const confirmed = [];
-    const session = new WaitModeSession(song, DEFAULT_PARAMS, {
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {
       onConfirm: (step) => confirmed.push(step.index),
     });
     session.start();
@@ -183,7 +189,7 @@ describe('wait-mode loop against synthetic playing', () => {
 
   test('skip advances without counting as played', () => {
     const song = loadSong('twinkle.mid');
-    const session = new WaitModeSession(song, DEFAULT_PARAMS, {});
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
     session.start();
     session.skip();
     assert.equal(session.stepIndex, 1);
@@ -192,7 +198,7 @@ describe('wait-mode loop against synthetic playing', () => {
 
   test('a loop range wraps back to its start', () => {
     const song = loadSong('twinkle.mid');
-    const session = new WaitModeSession(song, DEFAULT_PARAMS, {});
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
     session.start();
     session.setLoop(0, 2);
     session.skip();
@@ -201,15 +207,234 @@ describe('wait-mode loop against synthetic playing', () => {
     assert.equal(session.stepIndex, 0, 'should wrap to the loop start');
   });
 
+  test('audio arriving while paused is ignored', () => {
+    const song = loadSong('scale-and-chords.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.start();
+    session.togglePause();
+    feed(session, renderStep(session.currentStep.midiNotes));
+    assert.equal(session.stepIndex, 0, 'a paused session must not advance');
+  });
+
   test('finishing the song reports a summary', () => {
     const song = loadSong('twinkle.mid');
     let summary = null;
-    const session = new WaitModeSession(song, DEFAULT_PARAMS, {
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {
       onFinish: (s) => { summary = s; },
     });
     session.start();
     for (let i = 0; i < song.steps.length; i++) session.skip();
     assert.ok(summary, 'onFinish fired');
     assert.equal(summary.steps, song.steps.length);
+  });
+});
+
+describe('the song clock', () => {
+  /** Run the clock for `seconds` of real time in 16 ms frames. */
+  function run(session, seconds, dt = 0.016) {
+    for (let t = 0; t < seconds; t += dt) session.tick(dt);
+  }
+
+  test('starts with a lead-in, so the first note glides in', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.start();
+    assert.equal(session.songTime, song.steps[0].time - LEAD_IN_SECONDS);
+  });
+
+  test('WAIT: the clock never passes the current step, however long it runs', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.start();
+
+    run(session, 30);
+    assert.equal(session.stepIndex, 0, 'nothing advances without a confirmed match');
+    assert.ok(
+      Math.abs(session.songTime - song.steps[0].time) < 1e-9,
+      `clock parked at ${session.songTime}, expected ${song.steps[0].time}`,
+    );
+  });
+
+  test('WAIT: confirming lets the clock travel on to the next step', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.start();
+    run(session, 5);
+    session.skip();
+
+    const target = song.steps[1].time;
+    assert.ok(session.songTime < target, 'must not teleport to the next step');
+    run(session, 5);
+    assert.ok(Math.abs(session.songTime - target) < 1e-9, 'and then arrives');
+  });
+
+  /**
+   * The regression test for the bug this whole change exists to fix: the old
+   * renderer eased toward the target with a fixed time constant, so a wide gap
+   * and a narrow one both took ~270 ms and the motion carried no rhythm.
+   */
+  test('travel time is proportional to musical distance', () => {
+    const steps = groupIntoSteps([
+      { midi: 60, time: 0.0, duration: 0.4, hand: 'right' },
+      { midi: 62, time: 1.0, duration: 0.4, hand: 'right' }, // 1.0 s gap
+      { midi: 64, time: 3.0, duration: 0.4, hand: 'right' }, // 2.0 s gap
+    ]);
+    const song = { name: 'synthetic', notes: [], steps };
+
+    const timeToReach = (fromIndex) => {
+      const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+      session.start();
+      run(session, 10); // settle on step 0
+      for (let i = 0; i < fromIndex; i++) {
+        session.skip();
+        run(session, 10);
+      }
+      session.skip();
+
+      const target = steps[fromIndex + 1].time;
+      let elapsed = 0;
+      const dt = 0.004;
+      while (session.songTime < target - 1e-9 && elapsed < 20) {
+        session.tick(dt);
+        elapsed += dt;
+      }
+      return elapsed;
+    };
+
+    const short = timeToReach(0); // 1.0 s of song
+    const long = timeToReach(1); // 2.0 s of song
+
+    assert.ok(Math.abs(short - 1.0) < 0.05, `1.0 s gap took ${short.toFixed(3)} s`);
+    assert.ok(Math.abs(long - 2.0) < 0.05, `2.0 s gap took ${long.toFixed(3)} s`);
+    assert.ok(long > short * 1.8, 'the wider gap must take proportionally longer');
+  });
+
+  test('tempo scales the rate', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.setMode(PLAY);
+    session.start();
+
+    const before = session.songTime;
+    run(session, 1.0);
+    const atFull = session.songTime - before;
+
+    const half = new PracticeSession(song, DEFAULT_PARAMS, {});
+    half.setMode(PLAY);
+    half.setTempo(0.5);
+    half.start();
+    const halfBefore = half.songTime;
+    run(half, 1.0);
+    const atHalf = half.songTime - halfBefore;
+
+    assert.ok(Math.abs(atFull - 1.0) < 0.05, `100% advanced ${atFull.toFixed(3)} s`);
+    assert.ok(Math.abs(atHalf - 0.5) < 0.05, `50% advanced ${atHalf.toFixed(3)} s`);
+  });
+
+  test('tempo is clamped to the supported range', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    // A multiplier, not a percentage: 1.0 is 100%.
+    session.setTempo(0.09);
+    assert.equal(session.tempo, 0.25, 'clamped up to the 25% floor');
+    session.setTempo(9);
+    assert.equal(session.tempo, 1.5, 'clamped down to the 150% ceiling');
+  });
+
+  test('pausing stops the clock', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.setMode(PLAY);
+    session.start();
+    session.togglePause();
+    const before = session.songTime;
+    run(session, 3);
+    assert.equal(session.songTime, before);
+  });
+});
+
+describe('play-along mode', () => {
+  function run(session, seconds, dt = 0.016) {
+    for (let t = 0; t < seconds; t += dt) session.tick(dt);
+  }
+
+  test('unplayed steps pass and are reported missed', () => {
+    const song = loadSong('twinkle.mid');
+    const missed = [];
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {
+      onMiss: (step) => missed.push(step.index),
+    });
+    session.setMode(PLAY);
+    session.start();
+
+    run(session, 6);
+    assert.ok(missed.length >= 3, `expected several misses, got ${missed.length}`);
+    assert.deepEqual(missed, [...missed].sort((a, b) => a - b), 'misses arrive in order');
+    assert.equal(session.confirmedCount, 0);
+  });
+
+  test('a step stays current through its grace window', () => {
+    const steps = groupIntoSteps([
+      { midi: 60, time: 0.0, duration: 0.4, hand: 'right' },
+      { midi: 62, time: 5.0, duration: 0.4, hand: 'right' },
+    ]);
+    const session = new PracticeSession({ name: 's', notes: [], steps }, DEFAULT_PARAMS, {});
+    session.setMode(PLAY);
+    session.start();
+
+    // Advance to just inside the grace window past step 0.
+    while (session.songTime < GRACE_SECONDS * 0.5) session.tick(0.004);
+    assert.equal(session.stepIndex, 0, 'still accepting the note it is late for');
+
+    while (session.songTime < GRACE_SECONDS * 1.5) session.tick(0.004);
+    assert.equal(session.stepIndex, 1, 'and gone once the grace expires');
+  });
+
+  test('a tight passage is not swallowed by the previous grace window', () => {
+    // Steps 0.1 s apart — far closer than GRACE_SECONDS, so a naive
+    // "step.time + grace" rule would skip straight past the middle ones.
+    const steps = groupIntoSteps([
+      { midi: 60, time: 0.0, duration: 0.1, hand: 'right' },
+      { midi: 62, time: 0.1, duration: 0.1, hand: 'right' },
+      { midi: 64, time: 0.2, duration: 0.1, hand: 'right' },
+      { midi: 65, time: 0.3, duration: 0.1, hand: 'right' },
+    ]);
+    const seen = [];
+    const session = new PracticeSession({ name: 's', notes: [], steps }, DEFAULT_PARAMS, {
+      onStep: (step) => seen.push(step.index),
+    });
+    session.setMode(PLAY);
+    session.start();
+    run(session, 5, 0.004);
+
+    assert.deepEqual(seen, [0, 1, 2, 3], 'every step must get its turn as current');
+  });
+
+  test('playing in time confirms instead of missing', () => {
+    const song = loadSong('scale-and-chords.mid');
+    const missed = [];
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {
+      onMiss: (step) => missed.push(step.index),
+    });
+    session.setMode(PLAY);
+    session.start();
+
+    feed(session, renderStep(session.currentStep.midiNotes));
+    assert.equal(session.confirmedCount, 1);
+    assert.deepEqual(missed, [], 'a played note is not a missed one');
+  });
+
+  test('switching back to WAIT pulls the clock back to the current step', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.setMode(PLAY);
+    session.start();
+    run(session, 3);
+
+    session.setMode(WAIT);
+    assert.ok(
+      session.songTime <= session.currentStep.time + 1e-9,
+      'the clock must not be left past the step the roll is waiting on',
+    );
   });
 });

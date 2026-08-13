@@ -88,6 +88,19 @@
         <div class="meter" id="meter" title="Live chroma — the 12 pitch classes">
         </div>
 
+        <div class="segmented small" id="mode-select" role="radiogroup" aria-label="Mode">
+          <button role="radio" data-mode="wait" aria-checked="true" class="on"
+                  title="Notes stop at the line until you play them">Wait</button>
+          <button role="radio" data-mode="play" aria-checked="false"
+                  title="The song runs at tempo; notes pass whether or not you play them">Play along</button>
+        </div>
+
+        <label class="tempo" title="Pacing only — timing is never graded">
+          <span>Tempo</span>
+          <input type="range" id="tempo" min="25" max="150" step="5" value="100" />
+          <output id="tempo-value">100%</output>
+        </label>
+
         <div class="controls">
           <button id="back" class="ghost" title="Previous step">&larr;</button>
           <button id="skip" class="ghost" title="Skip this step (practice aid)">Skip &rarr;</button>

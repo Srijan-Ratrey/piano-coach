@@ -86,10 +86,43 @@ lets the session tests run headless.
 
 ---
 
+## Modes and the one clock
+
+Song time advances at a constant rate scaled by tempo (25–150%, default 100%,
+persisted in `localStorage`). The two modes are the same mechanism with one
+conditional clamp:
+
+```
+songTime += dt * tempo
+WAIT:  songTime = min(songTime, currentStep.time)   // freeze at the line
+PLAY:  unclamped; notes pass whether or not they were played
+```
+
+Deliberately not two code paths — two clocks would drift apart the first time
+either was touched. WAIT is the default and still advances only on a confirmed
+match (DECISION #8); PLAY is opt-in, gates nothing, and reports misses as
+feedback only.
+
+**The session owns the clock, not the renderer.** `PianoRoll.setScroll()` is
+fed `session.songTime` each frame and tracks it exactly. This matters: the
+renderer used to ease toward the next step with a fixed time constant, so every
+transition took ~270 ms whether the gap was a sixteenth or a whole note, and
+the motion carried no rhythm. Pacing is a property of the music, so it lives
+next to the step logic.
+
+`main.js` clamps `dt` to 50 ms. Not cosmetic — `requestAnimationFrame` stops in
+a background tab, so the first frame back reports the entire absence and would
+otherwise jump the song clock by that much.
+
+A miss flashes the **keys**, not the bar. A step is only declared missed a
+grace period after it crosses the line, by which point its bar is mostly
+clipped under the keyboard; the keys are stationary and already where the
+player is looking.
+
 ## Deep links
 
-`?song=<slug>&hand=right|left|both` opens straight into the roll — for example
-`/?song=ode-to-joy&hand=right`.
+`?song=<slug>&hand=right|left|both&mode=wait|play&tempo=<25-150>` opens straight
+into the roll — for example `/?song=ode-to-joy&hand=right&mode=play&tempo=75`.
 
 It always starts the **no-microphone** mode. A page cannot open the microphone
 without a user gesture, so the link shows the roll and you press the button

@@ -178,7 +178,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   right: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 16px;
   padding: 10px 14px;
   pointer-events: none;
 }
@@ -231,7 +231,7 @@ button.ghost:hover { color: var(--text); border-color: #37414f; }
 .status-dot.extra   { background: var(--bad); }
 .status-dot.ok      { background: var(--ok); }
 
-.meter { display: flex; align-items: flex-end; gap: 2px; height: 26px; margin: 0 auto; }
+.meter { display: flex; align-items: flex-end; gap: 2px; height: 26px; }
 
 .meter .bin {
   width: 9px;
@@ -243,7 +243,47 @@ button.ghost:hover { color: var(--text); border-color: #37414f; }
 .meter .bin.target { background: var(--ok); }
 .meter .bin.extra  { background: var(--bad); }
 
-.controls { display: flex; gap: 6px; margin-left: auto; }
+.controls { display: flex; gap: 6px; }
+
+#mode-select { margin-left: auto; }
+
+.segmented.small button {
+  padding: 5px 10px;
+  font-size: 12px;
+  flex: none;
+}
+
+.tempo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.tempo input[type="range"] {
+  width: 108px;
+  accent-color: var(--right);
+}
+
+.tempo output {
+  min-width: 34px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The controls row is dense. The meter is a diagnostic, so it is the first
+   thing to go when the width runs out — the transport must stay reachable. */
+@media (max-width: 980px) {
+  .meter { display: none; }
+}
+
+@media (max-width: 760px) {
+  .status { min-width: 0; }
+  .status #status-text { display: none; }
+  .tempo span { display: none; }
+}
 
 .rotate-hint {
   position: absolute;

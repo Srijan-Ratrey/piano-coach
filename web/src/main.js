@@ -8,9 +8,12 @@ import { startMic, MicError } from './audio/mic.js';
 import { PITCH_CLASS_NAMES } from './audio/chroma.js';
 import { filterByHand, parseMidi } from './song/midi.js';
 import { PianoRoll } from './render/pianoroll.js';
-import { WaitModeSession } from './session/waitmode.js';
+import { PLAY, PracticeSession, WAIT } from './session/session.js';
 
 const $ = (id) => document.getElementById(id);
+
+const TEMPO_KEY = 'piano-coach.tempo';
+const MODE_KEY = 'piano-coach.mode';
 
 const state = {
   catalogue: [],
@@ -21,6 +24,9 @@ const state = {
   roll: null,
   raf: null,
   lastTick: 0,
+  tempo: 1.0,
+  mode: WAIT,
+  useMic: false,
 };
 
 // --- Landing ---------------------------------------------------------------
@@ -155,38 +161,69 @@ async function beginSession({ useMic }) {
   meterBins = buildMeter();
   $('song-title').textContent = song.name + (useMic ? '' : '  ·  no microphone');
 
+  state.useMic = useMic;
   state.roll = new PianoRoll($('roll'), song);
-  state.session = new WaitModeSession(song, params, {
+  state.session = new PracticeSession(song, params, {
     onStep: (step, { verifiable }) => {
       state.roll.setStep(step.index);
       updateProgress();
       if (!verifiable) {
         setStatus('extra', 'Out of detectable range — skip it');
       } else if (!useMic) {
-        setStatus('waiting', 'Press space to advance');
+        setStatus('waiting', idleHint());
       }
     },
     onConfirm: (step) => {
       state.roll.markMatched(step.midiNotes);
     },
+    onMiss: (step) => {
+      state.roll.markMissed(step.index, step.midiNotes);
+    },
     onFrame: (frame) => updateMeter(frame),
     onFinish: (summary) => {
-      setStatus('ok', `Finished — ${summary.confirmed}/${summary.steps} played`);
+      const played = `${summary.confirmed}/${summary.steps} played`;
+      const missed = summary.missed ? `, ${summary.missed} missed` : '';
+      setStatus('ok', `Finished — ${played}${missed}`);
     },
   });
 
+  state.session.setTempo(state.tempo);
+  state.session.setMode(state.mode);
   state.session.start();
+  applyModeToControls();
   checkOrientation();
 
   state.lastTick = performance.now();
   const loop = (now) => {
+    // Clamped: requestAnimationFrame stops in a background tab, so the first
+    // frame back reports however long the tab was hidden. Unclamped, that
+    // single dt would advance the song clock by the whole absence.
     const dt = Math.min(0.05, (now - state.lastTick) / 1000);
     state.lastTick = now;
+    state.session.tick(dt);
+    state.roll.setScroll(state.session.songTime);
     state.roll.tick(dt);
     state.roll.draw();
     state.raf = requestAnimationFrame(loop);
   };
   state.raf = requestAnimationFrame(loop);
+}
+
+/** What to tell the player when nothing is happening, per mode. */
+function idleHint() {
+  if (state.mode === PLAY) return state.useMic ? 'Playing along…' : 'Space to pause';
+  return state.useMic ? 'Waiting for you to play' : 'Press space to advance';
+}
+
+function applyModeToControls() {
+  // Skip is a wait-mode affordance: in play mode the clock is what moves the
+  // song on, so a skip button would be lying about what advances it.
+  $('skip').disabled = state.mode === PLAY;
+  $('skip').title =
+    state.mode === PLAY
+      ? 'Not available in play-along — the clock advances the song'
+      : 'Skip this step (practice aid)';
+  setStatus(state.mode === PLAY ? 'holding' : 'waiting', idleHint());
 }
 
 function updateProgress() {
@@ -289,13 +326,67 @@ $('start-silent').addEventListener('click', () => beginSession({ useMic: false }
 $('quit').addEventListener('click', endSession);
 $('skip').addEventListener('click', () => state.session?.skip());
 $('back').addEventListener('click', () => state.session?.back());
-$('restart').addEventListener('click', () => state.session?.restart());
+$('restart').addEventListener('click', () => {
+  state.roll?.clearMissed();
+  state.session?.restart();
+});
+
+// --- Tempo and mode ---------------------------------------------------------
+
+function setTempo(percent, { persist = true } = {}) {
+  state.tempo = percent / 100;
+  $('tempo').value = String(percent);
+  $('tempo-value').textContent = `${percent}%`;
+  state.session?.setTempo(state.tempo);
+  if (persist) {
+    try { localStorage.setItem(TEMPO_KEY, String(percent)); } catch { /* private mode */ }
+  }
+}
+
+function setMode(mode, { persist = true } = {}) {
+  state.mode = mode === PLAY ? PLAY : WAIT;
+  for (const b of document.querySelectorAll('#mode-select button')) {
+    const on = b.dataset.mode === state.mode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', String(on));
+  }
+  state.session?.setMode(state.mode);
+  if (state.session) applyModeToControls();
+  if (persist) {
+    try { localStorage.setItem(MODE_KEY, state.mode); } catch { /* private mode */ }
+  }
+}
+
+$('tempo').addEventListener('input', (event) => setTempo(Number(event.target.value)));
+
+for (const button of document.querySelectorAll('#mode-select button')) {
+  button.addEventListener('click', () => setMode(button.dataset.mode));
+}
+
+// Restore persisted settings. DECISIONS allows localStorage for settings.
+try {
+  const savedTempo = Number(localStorage.getItem(TEMPO_KEY));
+  if (savedTempo >= 25 && savedTempo <= 150) setTempo(savedTempo, { persist: false });
+  else setTempo(100, { persist: false });
+  setMode(localStorage.getItem(MODE_KEY) ?? WAIT, { persist: false });
+} catch {
+  setTempo(100, { persist: false });
+  setMode(WAIT, { persist: false });
+}
 
 window.addEventListener('keydown', (event) => {
   if ($('view-session').hidden) return;
   if (event.code === 'Space') {
     event.preventDefault();
-    state.session?.skip();
+    // Space means "get past this moment", which is a different action per
+    // mode: in wait mode nothing moves until the step clears, in play mode the
+    // clock is already running and the useful thing is to stop it.
+    if (state.mode === PLAY) {
+      const paused = state.session?.togglePause();
+      setStatus(paused ? 'waiting' : 'holding', paused ? 'Paused' : idleHint());
+    } else {
+      state.session?.skip();
+    }
   } else if (event.code === 'ArrowLeft') {
     state.session?.back();
   } else if (event.code === 'Escape') {
@@ -320,6 +411,12 @@ async function applyDeepLink() {
   if (hand && ['right', 'left', 'both'].includes(hand)) {
     document.querySelector(`#hand-select button[data-hand="${hand}"]`)?.click();
   }
+
+  const mode = query.get('mode');
+  if (mode === PLAY || mode === WAIT) setMode(mode, { persist: false });
+
+  const tempo = Number(query.get('tempo'));
+  if (tempo >= 25 && tempo <= 150) setTempo(tempo, { persist: false });
 
   const entry = state.catalogue.find((e) => e.slug === slug);
   if (!entry) {
