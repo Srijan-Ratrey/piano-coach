@@ -211,7 +211,7 @@ function updateMeter(frame) {
 
   for (let i = 0; i < 12; i++) {
     const bin = meterBins[i];
-    const h = peak > 0 ? Math.max(2, (chroma[i] / peak) * 30) : 2;
+    const h = peak > 0 ? Math.max(2, (chroma[i] / peak) * 26) : 2;
     bin.style.height = `${h}px`;
     bin.className = 'bin' + (targets.has(i) ? ' target' : extras.has(i) ? ' extra' : '');
   }

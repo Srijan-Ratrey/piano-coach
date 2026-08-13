@@ -72,7 +72,7 @@ Layer 1 is ~90% of the app and needs no ML. Build it first. Layer 2 is a bolt-on
 **A song = a MIDI file.**
 1. Load `.mid` → parse with `@tonejs/midi` → `{ note, startTime, duration, track, finger? }`.
 2. Group near-simultaneous notes (~40–60 ms window) into **steps** (one note or chord to play).
-3. Render the **landscape piano-roll**: keyboard drawn vertically on one edge; note bars scroll toward it; the bar at the line is the current step.
+3. Render the **landscape piano-roll**: keyboard laid out horizontally along the bottom edge; note bars fall onto it; the bar at the line is the current step. (Originally specified as a sideways keyboard on one edge — see DECISIONS #19 for why that changed.)
 4. Optionally play already-passed notes via a sampled piano (Tone.js Sampler + soundfont) so the song is audible as it builds.
 
 **Wait-mode state machine:**

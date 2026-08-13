@@ -187,12 +187,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .hud-top {
   top: 0;
-  background: linear-gradient(#0d1117ee, #0d111700);
+  padding-bottom: 4px;
+  background: linear-gradient(#0d1117f2, #0d1117d9);
 }
 
-.hud-bottom {
-  bottom: 0;
-  background: linear-gradient(#0d111700, #0d1117ee);
+.hud-second {
+  top: 44px;
+  padding-top: 4px;
+  background: linear-gradient(#0d1117d9, #0d111700);
 }
 
 .song-title { font-weight: 600; font-size: 14px; }
@@ -229,7 +231,7 @@ button.ghost:hover { color: var(--text); border-color: #37414f; }
 .status-dot.extra   { background: var(--bad); }
 .status-dot.ok      { background: var(--ok); }
 
-.meter { display: flex; align-items: flex-end; gap: 2px; height: 30px; margin: 0 auto; }
+.meter { display: flex; align-items: flex-end; gap: 2px; height: 26px; margin: 0 auto; }
 
 .meter .bin {
   width: 9px;

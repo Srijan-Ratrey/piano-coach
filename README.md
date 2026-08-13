@@ -19,8 +19,8 @@ play any song with a wait-mode learning loop.
 Two halves, both working, one of them unmeasured.
 
 **The browser app** ([`web/`](web/)) — PLAN build-order steps 5 and 6. Loads a
-MIDI file, renders the landscape piano-roll with falling bars and a vertical
-keyboard, listens through the microphone, and advances only when the target
+MIDI file, renders the piano-roll — note bars falling onto a keyboard along
+the bottom edge — listens through the microphone, and advances only when the target
 notes are confirmed. 21 tests, including a suite that proves the JS reproduces
 the Python DSP to 1e-6.
 
