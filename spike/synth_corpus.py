@@ -46,7 +46,9 @@ def piano_note(
         if f >= params.sample_rate / 2:
             break
         # Upper partials decay faster, as they do on a real string.
-        sig += weight * np.exp(-decay * h**0.5 * t) * np.sin(2 * np.pi * f * t + 0.7 * h)
+        sig += (
+            weight * np.exp(-decay * h**0.5 * t) * np.sin(2 * np.pi * f * t + 0.7 * h)
+        )
 
     attack = np.clip(t / 0.006, 0.0, 1.0)
     sig *= attack
@@ -130,7 +132,9 @@ def main(argv: list[str] | None = None) -> int:
                 "peak": float(np.max(np.abs(samples))),
                 "rms": float(np.sqrt(np.mean(samples**2))),
                 "clipped": 0.0,
-                "recorded_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "recorded_at": datetime.now()
+                .astimezone()
+                .isoformat(timespec="seconds"),
                 "synthetic": True,
             }
         )

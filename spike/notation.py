@@ -13,7 +13,13 @@ import re
 from .core.chroma import PITCH_CLASS_NAMES
 
 _SEMITONE = {
-    "C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11,
+    "C": 0,
+    "D": 2,
+    "E": 4,
+    "F": 5,
+    "G": 7,
+    "A": 9,
+    "B": 11,
 }
 
 _NOTE_RE = re.compile(r"^\s*([A-Ga-g])([#b♯♭]?)(-?\d+)?\s*$")

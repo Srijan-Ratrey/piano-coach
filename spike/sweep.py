@@ -146,15 +146,15 @@ def main(argv: list[str] | None = None) -> int:
 
     entries = load_corpus(args.corpus)
 
-    fft_sizes = (
-        tuple(int(s) for s in args.fft.split(",")) if args.fft else FFT_GRID
-    )
+    fft_sizes = tuple(int(s) for s in args.fft.split(",")) if args.fft else FFT_GRID
     present = QUICK_PRESENT if args.quick else PRESENT_GRID
     extra = QUICK_EXTRA if args.quick else EXTRA_GRID
     stability = QUICK_STABILITY if args.quick else STABILITY_GRID
 
     combos = list(
-        itertools.product(fft_sizes, present, extra, stability, (False, True), (False, True))
+        itertools.product(
+            fft_sizes, present, extra, stability, (False, True), (False, True)
+        )
     )
     print(f"{BOLD}piano-coach — threshold sweep{RESET}")
     print(f"  {len(entries)} takes × {len(combos)} operating points")
@@ -185,12 +185,18 @@ def main(argv: list[str] | None = None) -> int:
     points.sort(key=lambda p: p.rank_key)
 
     print()
-    print(f"{BOLD}Best operating points{RESET} {DIM}(false confirms first, then recall){RESET}")
+    print(
+        f"{BOLD}Best operating points{RESET} {DIM}(false confirms first, then recall){RESET}"
+    )
     print(
         f"{DIM}  {'configuration':56s} {'recall':>7s} {'false':>7s} {'latency':>8s}{RESET}"
     )
     for p in points[: args.top]:
-        colour = GREEN if p.clears_all else (YELLOW if p.false_confirm <= FALSE_CONFIRM_BAR else RED)
+        colour = (
+            GREEN
+            if p.clears_all
+            else (YELLOW if p.false_confirm <= FALSE_CONFIRM_BAR else RED)
+        )
         lat = f"{p.median_latency:.0f}ms" if p.median_latency is not None else "—"
         print(
             f"  {colour}{p.label():56s}{RESET} {p.recall * 100:6.1f}% "
@@ -201,7 +207,9 @@ def main(argv: list[str] | None = None) -> int:
     print()
     if clearing:
         best = clearing[0]
-        print(f"{GREEN}{BOLD}{len(clearing)} configuration(s) clear all three bars.{RESET}")
+        print(
+            f"{GREEN}{BOLD}{len(clearing)} configuration(s) clear all three bars.{RESET}"
+        )
         print(f"  Best: {BOLD}{best.label()}{RESET}")
         print()
         print("  Copy into spike/params.py:")
@@ -217,7 +225,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  Closest: {BOLD}{best.label()}{RESET}")
         print(
             f"  recall {best.recall * 100:.1f}%  false {best.false_confirm * 100:.1f}%  "
-            f"latency {best.median_latency:.0f}ms" if best.median_latency
+            f"latency {best.median_latency:.0f}ms"
+            if best.median_latency
             else f"  recall {best.recall * 100:.1f}%  false {best.false_confirm * 100:.1f}%"
         )
         print()

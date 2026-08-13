@@ -28,7 +28,9 @@ SR = DEFAULT.sample_rate
 PIANO_PARTIALS = (1.0, 0.5, 0.28, 0.16, 0.09, 0.05)
 
 
-def tone(midi: int, seconds: float, amp: float = 0.3, partials=PIANO_PARTIALS) -> np.ndarray:
+def tone(
+    midi: int, seconds: float, amp: float = 0.3, partials=PIANO_PARTIALS
+) -> np.ndarray:
     """A steady harmonic tone at the pitch of `midi`."""
     t = np.arange(int(seconds * SR), dtype=np.float64) / SR
     f0 = float(midi_to_hz(midi))
@@ -130,7 +132,9 @@ def test_chroma_is_loudness_independent():
 
 def test_chroma_sums_to_one_and_silence_gives_zeros():
     ex = ChromaExtractor(DEFAULT)
-    chroma, notes = ex.chroma(dsp.spectrum(tone(64, 0.5)[: DEFAULT.fft_size], DEFAULT.fft_size))
+    chroma, notes = ex.chroma(
+        dsp.spectrum(tone(64, 0.5)[: DEFAULT.fft_size], DEFAULT.fft_size)
+    )
     assert chroma.sum() == pytest.approx(1.0)
     assert notes.sum() == pytest.approx(1.0)
 
@@ -143,7 +147,9 @@ def test_octave_energy_peaks_at_the_played_note():
     """Per-note energies must favour the actual octave, otherwise octave mode
     (decision E) could never work at all."""
     ex = ChromaExtractor(DEFAULT)
-    _, notes = ex.chroma(dsp.spectrum(tone(60, 0.5)[: DEFAULT.fft_size], DEFAULT.fft_size))
+    _, notes = ex.chroma(
+        dsp.spectrum(tone(60, 0.5)[: DEFAULT.fft_size], DEFAULT.fft_size)
+    )
     assert int(np.argmax(notes)) == ex.note_index(60)
 
 
@@ -170,7 +176,9 @@ def test_room_noise_does_not_fire_an_onset_before_the_strike():
     results = analyse(noisy(struck(tone(60, 2.0), lead_silence=1.0)), (0,), DEFAULT)
     onsets = [r.time_ms for r in results if r.onset]
     assert onsets, "the real strike must still register"
-    assert min(onsets) > 700, f"onset fired at {min(onsets):.0f} ms, before the 1 s strike"
+    assert min(onsets) > 700, (
+        f"onset fired at {min(onsets):.0f} ms, before the 1 s strike"
+    )
 
 
 def test_changing_target_keeps_onset_history():
@@ -180,7 +188,9 @@ def test_changing_target_keeps_onset_history():
     from spike.core import dsp
 
     analyser = Analyser(DEFAULT, (0,))
-    frames = list(dsp.iter_frames(noisy(struck(tone(60, 2.0))), DEFAULT.fft_size, DEFAULT.hop))
+    frames = list(
+        dsp.iter_frames(noisy(struck(tone(60, 2.0))), DEFAULT.fft_size, DEFAULT.hop)
+    )
     for f in frames[:10]:
         analyser.push(f)
     history_before = len(analyser.onset._history)

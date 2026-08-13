@@ -56,7 +56,10 @@ def plot_take(
     thresh = np.array([r.flux_threshold for r in results])
 
     fig, axes = plt.subplots(
-        4, 1, figsize=(13, 11), sharex=True,
+        4,
+        1,
+        figsize=(13, 11),
+        sharex=True,
         gridspec_kw={"height_ratios": [2.2, 2.2, 1.0, 1.2]},
     )
 
@@ -70,18 +73,28 @@ def plot_take(
     # 1 — spectrogram, log frequency, limited to the analysed band.
     ax = axes[0]
     spec_db = 20 * np.log10(
-        np.array([np.abs(np.fft.rfft(f * np.hanning(len(f))))
-                  for f in _frames(samples, params)]).T + 1e-10
+        np.array(
+            [
+                np.abs(np.fft.rfft(f * np.hanning(len(f))))
+                for f in _frames(samples, params)
+            ]
+        ).T
+        + 1e-10
     )
     freqs = np.fft.rfftfreq(params.fft_size, 1.0 / params.sample_rate)
-    lo, hi = float(midi_to_hz(params.midi_low)) * 0.7, float(midi_to_hz(params.midi_high)) * 1.4
+    lo, hi = (
+        float(midi_to_hz(params.midi_low)) * 0.7,
+        float(midi_to_hz(params.midi_high)) * 1.4,
+    )
     band = (freqs >= lo) & (freqs <= hi)
     ax.pcolormesh(times, freqs[band], spec_db[band], shading="nearest", cmap="magma")
     ax.set_yscale("log")
     ax.set_ylabel("Hz (log)")
-    for m in (target if params.octave_mode else ()):
+    for m in target if params.octave_mode else ():
         ax.axhline(float(midi_to_hz(m)), color="cyan", lw=0.8, alpha=0.6)
-    ax.set_title("spectrogram — is the energy where the notes should be?", fontsize=9, loc="left")
+    ax.set_title(
+        "spectrogram — is the energy where the notes should be?", fontsize=9, loc="left"
+    )
 
     # 2 — chroma heat map with the target pitch classes called out.
     ax = axes[1]
@@ -98,7 +111,8 @@ def plot_take(
     ax.set_ylabel("pitch class")
     ax.set_title(
         "chroma — target rows marked ▶; a bright unmarked row is an extra",
-        fontsize=9, loc="left",
+        fontsize=9,
+        loc="left",
     )
 
     # 3 — onset detection function against its adaptive threshold.
@@ -110,18 +124,41 @@ def plot_take(
             ax.axvline(r.time_ms / 1000.0, color="cyan", lw=1.2, alpha=0.8)
     ax.set_ylabel("flux")
     ax.legend(fontsize=7, loc="upper right")
-    ax.set_title("onset — cyan lines are accepted strikes (decision F)", fontsize=9, loc="left")
+    ax.set_title(
+        "onset — cyan lines are accepted strikes (decision F)", fontsize=9, loc="left"
+    )
 
     # 4 — which condition was blocking, frame by frame.
     ax = axes[3]
     rows = [
-        ("armed (onset seen)", [bool(r.verdict and r.verdict.armed) for r in results], "#4c9f70"),
-        ("targets present", [bool(r.verdict and r.verdict.targets_present) for r in results], "#3d7ea6"),
-        ("no extras", [bool(r.verdict and not r.verdict.extras and not r.verdict.silent) for r in results], "#b5772e"),
-        ("CONFIRMED", [bool(r.verdict and r.verdict.latched) for r in results], "#c2452d"),
+        (
+            "armed (onset seen)",
+            [bool(r.verdict and r.verdict.armed) for r in results],
+            "#4c9f70",
+        ),
+        (
+            "targets present",
+            [bool(r.verdict and r.verdict.targets_present) for r in results],
+            "#3d7ea6",
+        ),
+        (
+            "no extras",
+            [
+                bool(r.verdict and not r.verdict.extras and not r.verdict.silent)
+                for r in results
+            ],
+            "#b5772e",
+        ),
+        (
+            "CONFIRMED",
+            [bool(r.verdict and r.verdict.latched) for r in results],
+            "#c2452d",
+        ),
     ]
     for i, (label, mask, colour) in enumerate(rows):
-        ax.fill_between(times, i, i + 0.8, where=np.array(mask), color=colour, step="mid")
+        ax.fill_between(
+            times, i, i + 0.8, where=np.array(mask), color=colour, step="mid"
+        )
         ax.text(times[0], i + 0.4, "  " + label, va="center", fontsize=8, color="black")
     ax.set_ylim(0, len(rows))
     ax.set_yticks([])
@@ -129,7 +166,8 @@ def plot_take(
     ax.set_title(
         "verdict — confirmation needs all three upper bars simultaneously, "
         f"held {params.stability_frames} frames",
-        fontsize=9, loc="left",
+        fontsize=9,
+        loc="left",
     )
 
     fig.tight_layout(rect=(0, 0, 1, 0.97))
@@ -155,7 +193,8 @@ def _target_text(target: tuple[int, ...], params: Params) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
-        prog="spike.plot", description="Plot spectrogram, chroma, onsets and verdict for a take."
+        prog="spike.plot",
+        description="Plot spectrogram, chroma, onsets and verdict for a take.",
     )
     ap.add_argument("wav", nargs="?", type=Path, help="path to a WAV file")
     ap.add_argument("--item", default=None, help="plot every take of a corpus item id")

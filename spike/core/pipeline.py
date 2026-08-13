@@ -106,10 +106,10 @@ class FrameData:
     one pass of FFTs.
     """
 
-    chroma: np.ndarray      # (frames, 12)
-    notes: np.ndarray       # (frames, n_notes)
-    onsets: np.ndarray      # (frames,) bool
-    rms: np.ndarray         # (frames,)
+    chroma: np.ndarray  # (frames, 12)
+    notes: np.ndarray  # (frames, n_notes)
+    onsets: np.ndarray  # (frames,) bool
+    rms: np.ndarray  # (frames,)
 
     def __len__(self) -> int:
         return len(self.rms)
@@ -162,7 +162,9 @@ def replay(data: FrameData, target: tuple[int, ...], params: Params) -> ReplayRe
     extras: dict[int, int] = {}
 
     for i in range(len(data)):
-        v = verifier.step(data.chroma[i], data.notes[i], bool(data.onsets[i]), float(data.rms[i]))
+        v = verifier.step(
+            data.chroma[i], data.notes[i], bool(data.onsets[i]), float(data.rms[i])
+        )
         peak_hold = max(peak_hold, v.frames_held)
         if v.onset and onset_frame is None:
             onset_frame = v.frame

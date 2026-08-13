@@ -53,7 +53,11 @@ def check(params: Params, device: int | None, seconds: float = 2.0) -> int:
     """
     print(f"{BOLD}Input devices{RESET}")
     for index, name, channels in audioio.list_input_devices():
-        marker = "*" if (device is None and index == _default_index()) or index == device else " "
+        marker = (
+            "*"
+            if (device is None and index == _default_index()) or index == device
+            else " "
+        )
         print(f"  {marker} [{index}] {name}  ({channels} in)")
 
     print(f"\n{BOLD}Recording {seconds:g}s from:{RESET} {audioio.device_name(device)}")
@@ -77,7 +81,9 @@ def check(params: Params, device: int | None, seconds: float = 2.0) -> int:
 
     print()
     if clip > 0.0:
-        print(f"{RED}CLIPPING.{RESET} Turn the piano's speakers down or move the mic back.")
+        print(
+            f"{RED}CLIPPING.{RESET} Turn the piano's speakers down or move the mic back."
+        )
         print("A clipped take generates harmonic distortion that looks exactly like")
         print("extra notes, so it would corrupt the extra-note measurement.")
         return 1
@@ -223,7 +229,9 @@ def meter(params: Params, device: int | None, target, octave_mode: bool) -> int:
                 sys.stdout.flush()
 
                 if frames_seen == 40 and not seen_audio:
-                    sys.stdout.write("\n\n" + RED + audioio.MIC_PERMISSION_HINT + RESET + "\n")
+                    sys.stdout.write(
+                        "\n\n" + RED + audioio.MIC_PERMISSION_HINT + RESET + "\n"
+                    )
                     sys.stdout.flush()
                     return 1
     except KeyboardInterrupt:

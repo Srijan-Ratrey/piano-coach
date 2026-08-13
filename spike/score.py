@@ -121,8 +121,7 @@ def score_take(entry: dict, params: Params, corpus_dir: Path) -> TakeResult:
 
     ranked = sorted(extra_counts.items(), key=lambda kv: -kv[1])[:4]
     labels = [
-        (note_name(e) if params.octave_mode else PITCH_CLASS_NAMES[e % 12])
-        + f"×{n}"
+        (note_name(e) if params.octave_mode else PITCH_CLASS_NAMES[e % 12]) + f"×{n}"
         for e, n in ranked
     ]
 
@@ -173,7 +172,9 @@ def summarise(results: list[TakeResult]) -> Summary:
         positives_confirmed=sum(1 for r in pos if r.confirmed),
         negatives=len(neg),
         negatives_confirmed=sum(1 for r in neg if r.confirmed),
-        latencies=[r.latency_ms for r in pos if r.confirmed and r.latency_ms is not None],
+        latencies=[
+            r.latency_ms for r in pos if r.confirmed and r.latency_ms is not None
+        ],
     )
 
 
@@ -185,7 +186,10 @@ def verdict_line(summary: Summary, by_register: dict[str, Summary]) -> tuple[str
     lat_ok = lat is not None and lat <= LATENCY_BAR_MS
 
     if recall_ok and fc_ok and lat_ok:
-        return "GO", "All three bars cleared. Proceed to PLAN step 3 with these constants."
+        return (
+            "GO",
+            "All three bars cleared. Proceed to PLAN step 3 with these constants.",
+        )
 
     if not fc_ok:
         return (
@@ -195,8 +199,14 @@ def verdict_line(summary: Summary, by_register: dict[str, Summary]) -> tuple[str
             "detection at all. Tighten extra-note rejection before anything else.",
         )
 
-    strong = [name for name, s in by_register.items() if s.positives and s.recall >= RECALL_BAR]
-    weak = [name for name, s in by_register.items() if s.positives and s.recall < RECALL_BAR]
+    strong = [
+        name
+        for name, s in by_register.items()
+        if s.positives and s.recall >= RECALL_BAR
+    ]
+    weak = [
+        name for name, s in by_register.items() if s.positives and s.recall < RECALL_BAR
+    ]
     if recall_ok is False and strong and weak and fc_ok:
         return (
             "CONSTRAINED GO",
@@ -344,7 +354,9 @@ def build_params(args) -> Params:
 
 
 def add_param_args(ap: argparse.ArgumentParser) -> None:
-    ap.add_argument("--octave", action="store_true", help="verify exact notes (decision E)")
+    ap.add_argument(
+        "--octave", action="store_true", help="verify exact notes (decision E)"
+    )
     ap.add_argument(
         "--harmonic-exclusion",
         action="store_true",
@@ -353,7 +365,9 @@ def add_param_args(ap: argparse.ArgumentParser) -> None:
     ap.add_argument("--fft", type=int, default=None)
     ap.add_argument("--present", type=float, default=None)
     ap.add_argument("--extra", type=float, default=None)
-    ap.add_argument("--stability", type=float, default=None, help="stability window in ms")
+    ap.add_argument(
+        "--stability", type=float, default=None, help="stability window in ms"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -361,8 +375,12 @@ def main(argv: list[str] | None = None) -> int:
         prog="spike.score", description="Score the recorded corpus. The go/no-go call."
     )
     add_param_args(ap)
-    ap.add_argument("--json", type=Path, default=None, help="also write results as JSON")
-    ap.add_argument("--item", default=None, help="score only these item ids (comma separated)")
+    ap.add_argument(
+        "--json", type=Path, default=None, help="also write results as JSON"
+    )
+    ap.add_argument(
+        "--item", default=None, help="score only these item ids (comma separated)"
+    )
     ap.add_argument("--corpus", type=Path, default=CORPUS_DIR, help="corpus directory")
     args = ap.parse_args(argv)
 

@@ -98,13 +98,22 @@ def review(samples: np.ndarray, params: Params, item_kind: str) -> tuple[bool, s
     stats = f"peak {peak:.3f}  rms {level:.4f}  clipped {clip * 100:.2f}%"
 
     if clip > 0.0:
-        return False, f"{RED}CLIPPED{RESET}  {stats}\n  Distortion looks like extra notes. Turn the volume down and retake."
+        return (
+            False,
+            f"{RED}CLIPPED{RESET}  {stats}\n  Distortion looks like extra notes. Turn the volume down and retake.",
+        )
     if item_kind == "negative" and not samples.size:
         return True, stats
     if item_kind != "negative" and peak < 0.02:
-        return False, f"{YELLOW}TOO QUIET{RESET}  {stats}\n  Below 2% of full scale; soft frames will fall under the silence gate."
+        return (
+            False,
+            f"{YELLOW}TOO QUIET{RESET}  {stats}\n  Below 2% of full scale; soft frames will fall under the silence gate.",
+        )
     if item_kind == "negative" and peak > 0.5:
-        return False, f"{YELLOW}LOUD FOR A CONTROL{RESET}  {stats}\n  Room tone should be quiet — was something played by accident?"
+        return (
+            False,
+            f"{YELLOW}LOUD FOR A CONTROL{RESET}  {stats}\n  Room tone should be quiet — was something played by accident?",
+        )
     return True, f"{GREEN}ok{RESET}  {stats}"
 
 
@@ -171,12 +180,20 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  output      {CORPUS_DIR}")
     print(f"  takes       {len(takes)} planned, {len(done)} already recorded")
     print()
-    print(f"{DIM}Before starting: reverb/ambience OFF on the piano, a clean acoustic{RESET}")
-    print(f"{DIM}grand voice, mic about a metre away, and run `--check` on spike.live{RESET}")
-    print(f"{DIM}first to confirm the level is sane. Reverb smears the onsets that the{RESET}")
+    print(
+        f"{DIM}Before starting: reverb/ambience OFF on the piano, a clean acoustic{RESET}"
+    )
+    print(
+        f"{DIM}grand voice, mic about a metre away, and run `--check` on spike.live{RESET}"
+    )
+    print(
+        f"{DIM}first to confirm the level is sane. Reverb smears the onsets that the{RESET}"
+    )
     print(f"{DIM}pedal items depend on.{RESET}")
     print()
-    print(f"{DIM}At each prompt: Enter = record, r = retake, s = skip, q = quit.{RESET}")
+    print(
+        f"{DIM}At each prompt: Enter = record, r = retake, s = skip, q = quit.{RESET}"
+    )
 
     for p in takes:
         if p.stem in done and not args.redo:
@@ -185,8 +202,14 @@ def main(argv: list[str] | None = None) -> int:
         print(describe(p, len(takes)))
         while True:
             try:
-                choice = input(f"  {BOLD}Enter{RESET} to record  {DIM}(s skip, q quit){RESET} ").strip().lower()
-            except (EOFError, KeyboardInterrupt):
+                choice = (
+                    input(
+                        f"  {BOLD}Enter{RESET} to record  {DIM}(s skip, q quit){RESET} "
+                    )
+                    .strip()
+                    .lower()
+                )
+            except EOFError, KeyboardInterrupt:
                 print("\n  stopped.")
                 save_manifest(entries)
                 return 0
@@ -232,9 +255,13 @@ def main(argv: list[str] | None = None) -> int:
                     "seconds": args.seconds,
                     "device": device_name,
                     "peak": float(np.max(np.abs(samples))) if samples.size else 0.0,
-                    "rms": float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0,
+                    "rms": float(np.sqrt(np.mean(np.square(samples))))
+                    if samples.size
+                    else 0.0,
                     "clipped": dsp.clipped_fraction(samples, CLIP_THRESHOLD),
-                    "recorded_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "recorded_at": datetime.now()
+                    .astimezone()
+                    .isoformat(timespec="seconds"),
                 }
             )
             save_manifest(entries)

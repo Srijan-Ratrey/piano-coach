@@ -72,6 +72,8 @@ def write_midi(path: Path, right, left, tempo_bpm: int = 90) -> None:
 # (start_in_beats, length_in_beats, midi_note)
 
 C = 60
+
+
 def n(name: str) -> int:
     """Tiny helper so the tunes below read like music, e.g. n('E4')."""
     base = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -95,7 +97,12 @@ def scale_and_chords():
     for note in ("C4", "D4", "E4", "F4", "G4", "A4", "B4", "C5"):
         right.append((t, 0.9, n(note)))
         t += 1.0
-    for chord in (("C4", "E4", "G4"), ("F4", "A4", "C5"), ("G4", "B4", "D5"), ("C4", "E4", "G4")):
+    for chord in (
+        ("C4", "E4", "G4"),
+        ("F4", "A4", "C5"),
+        ("G4", "B4", "D5"),
+        ("C4", "E4", "G4"),
+    ):
         for note in chord:
             right.append((t, 1.8, n(note)))
         t += 2.0
@@ -114,14 +121,36 @@ def scale_and_chords():
 def ode_to_joy():
     """Beethoven, 1824. Public domain."""
     melody = [
-        ("E4", 1), ("E4", 1), ("F4", 1), ("G4", 1),
-        ("G4", 1), ("F4", 1), ("E4", 1), ("D4", 1),
-        ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 1),
-        ("E4", 1.5), ("D4", 0.5), ("D4", 2),
-        ("E4", 1), ("E4", 1), ("F4", 1), ("G4", 1),
-        ("G4", 1), ("F4", 1), ("E4", 1), ("D4", 1),
-        ("C4", 1), ("C4", 1), ("D4", 1), ("E4", 1),
-        ("D4", 1.5), ("C4", 0.5), ("C4", 2),
+        ("E4", 1),
+        ("E4", 1),
+        ("F4", 1),
+        ("G4", 1),
+        ("G4", 1),
+        ("F4", 1),
+        ("E4", 1),
+        ("D4", 1),
+        ("C4", 1),
+        ("C4", 1),
+        ("D4", 1),
+        ("E4", 1),
+        ("E4", 1.5),
+        ("D4", 0.5),
+        ("D4", 2),
+        ("E4", 1),
+        ("E4", 1),
+        ("F4", 1),
+        ("G4", 1),
+        ("G4", 1),
+        ("F4", 1),
+        ("E4", 1),
+        ("D4", 1),
+        ("C4", 1),
+        ("C4", 1),
+        ("D4", 1),
+        ("E4", 1),
+        ("D4", 1.5),
+        ("C4", 0.5),
+        ("C4", 2),
     ]
     right = []
     t = 0.0
@@ -129,8 +158,24 @@ def ode_to_joy():
         right.append((t, length * 0.92, n(name)))
         t += length
 
-    bass = ["C3", "C3", "G2", "C3", "C3", "C3", "G2", "C3",
-            "C3", "C3", "G2", "C3", "C3", "C3", "G2", "C3"]
+    bass = [
+        "C3",
+        "C3",
+        "G2",
+        "C3",
+        "C3",
+        "C3",
+        "G2",
+        "C3",
+        "C3",
+        "C3",
+        "G2",
+        "C3",
+        "C3",
+        "C3",
+        "G2",
+        "C3",
+    ]
     left = [(i * 2.0, 1.8, n(name)) for i, name in enumerate(bass)]
     return right, left
 
@@ -138,10 +183,20 @@ def ode_to_joy():
 def twinkle():
     """Traditional, public domain. Melody plus simple triads underneath."""
     melody = [
-        ("C4", 1), ("C4", 1), ("G4", 1), ("G4", 1),
-        ("A4", 1), ("A4", 1), ("G4", 2),
-        ("F4", 1), ("F4", 1), ("E4", 1), ("E4", 1),
-        ("D4", 1), ("D4", 1), ("C4", 2),
+        ("C4", 1),
+        ("C4", 1),
+        ("G4", 1),
+        ("G4", 1),
+        ("A4", 1),
+        ("A4", 1),
+        ("G4", 2),
+        ("F4", 1),
+        ("F4", 1),
+        ("E4", 1),
+        ("E4", 1),
+        ("D4", 1),
+        ("D4", 1),
+        ("C4", 2),
     ]
     right = []
     t = 0.0
@@ -149,8 +204,16 @@ def twinkle():
         right.append((t, length * 0.9, n(name)))
         t += length
 
-    chords = [("C3", "E3", "G3"), ("C3", "F3", "A3"), ("C3", "F3", "A3"), ("C3", "E3", "G3"),
-              ("B2", "D3", "F3"), ("C3", "E3", "G3"), ("B2", "D3", "G3"), ("C3", "E3", "G3")]
+    chords = [
+        ("C3", "E3", "G3"),
+        ("C3", "F3", "A3"),
+        ("C3", "F3", "A3"),
+        ("C3", "E3", "G3"),
+        ("B2", "D3", "F3"),
+        ("C3", "E3", "G3"),
+        ("B2", "D3", "G3"),
+        ("C3", "E3", "G3"),
+    ]
     left = []
     for i, chord in enumerate(chords):
         for name in chord:
