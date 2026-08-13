@@ -253,14 +253,25 @@ Work in this order; each step is independently verifiable against
    compute chroma and note energies, compare to `expected` within `tolerance`
    (1e-6). Real corpus frames appear here once a corpus exists; the synthetic
    ones are always present.
-5. `onset_sequence` — two frames of silence then a sustained C major triad.
-   Exactly one onset, at the listed frame.
-6. `verifier_trace` — 15 steps of hand-built chroma with no audio at all.
-   Checks arming, the extras reset, stability counting and latching in
-   isolation from the FFT.
+5. `onset_trace` — hand-built magnitude spectra, no audio. Checks the warm-up
+   gate, the adaptive median, the flux floor and the refractory window.
+6. `verifier_trace` — hand-built chroma vectors, no audio. Checks arming, the
+   extras reset, stability counting and latching.
 
-Steps 1–5 test the transform; step 6 tests the logic. When a port fails, that
+Steps 1–4 test the transform; steps 5–6 test the logic. When a port fails, that
 split tells you which half is wrong instead of leaving one opaque mismatch.
+
+**Expected values are computed from the int16-quantised samples**, not the
+float originals. A port that decodes the embedded audio and compares against
+float-derived expectations would see ~1e-4 relative error from quantisation
+alone — a hundred times the stated tolerance — and fail for a reason unrelated
+to its own correctness. Note also that the file rounds to 9 decimal places, so
+no comparison can be tighter than ~5e-10.
+
+> **This port now exists**: `web/src/audio/`, verified by
+> `web/test/golden.test.js` (`cd web && npm run verify:golden`). Anything
+> changed in `spike/core/` must be re-exported and re-verified, or the two
+> silently diverge and the spike stops describing the app.
 
 ### Browser-specific notes
 

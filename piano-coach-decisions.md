@@ -27,6 +27,7 @@ Inspired by the wait-mode pattern (notes hold at the keyboard line until played)
 | 15 | **App language** | **Unchanged: browser JS** | #10 and #11 stand. The spike is a measuring instrument, not the product; it is throwaway by design. |
 | 16 | **Port discipline** | Plain numpy only (no scipy/librosa) + a written algorithm spec + golden acceptance vectors | The cost of #14 is writing the DSP twice, and the risk is a port that drifts — in which case the gate measured nothing. `spike/ALGORITHM.md` pins the maths and `spike/golden/golden.json` pins the numbers, split into transform tests and state-machine tests so a failure localises. |
 | 17 | **Spike hardware** | Digital piano through its speakers → mic | The recorder stamps the device into `manifest.json`. Cleaner harmonics than an acoustic instrument, so results are optimistic for the acoustic case. |
+| 18 | **Build order deviation** | The browser app (PLAN steps 5–6) was built **before** the corpus was recorded | A deliberate departure from #12, made at the user's direction. The renderer and MIDI path do not depend on the gate's outcome and stay useful even under a NO-GO — a pivot to MIDI input would need the same piano-roll. What *is* affected: the app currently runs on the spike's untuned default thresholds, so microphone detection quality is unknown rather than measured. Recording the corpus and copying the swept constants into `web/src/audio/params.js` closes the gap. |
 
 ### Browser platform decisions
 | # | Decision | Choice | Why |
@@ -86,9 +87,10 @@ Sustain pedal blurs consecutive chords. Require an energy *rise* (onset) to acce
 - **A warm-up period.** With no history to compare against, the first frames report room tone as a strike — arming the verifier before a key is touched and silently cancelling the gate. Related: the onset detector must *not* be reset when the song advances a step, or every step re-enters that state.
 - **A meaningful flux floor.** The adaptive median collapses toward zero during a sustain, so the threshold becomes arbitrarily sensitive exactly while a note is held. What it has to reject there is not noise but *beating* — equal-tempered intervals beat by construction, and that swell is genuine positive flux mid-chord.
 
-### G. Framework / stack
-→ *Recommendation:* vanilla JS + Web Audio + Canvas + `@tonejs/midi`; optional Tone.js Sampler for playback. Keep it dependency-light.
+### G. Framework / stack — **SETTLED: as recommended**
+→ **Built** in `web/`: vanilla JS, Web Audio, Canvas, `@tonejs/midi`, Vite as the dev server and bundler. Two runtime dependencies in total. Tone.js playback of passed notes is not built and remains optional.
 → *Note:* the spike (#14) is Python, which does not affect this. See #15/#16.
+→ Three browser details that cost real debugging time and are easy to undo by accident: the AudioWorklet is served verbatim from `public/` rather than imported (bundlers inline small files as `data:` URLs, which `addModule()` accepts inconsistently); `AnalyserNode` is unusable here because its smoothing and windowing cannot reproduce the golden vectors; and the analysis sample rate is read from the live `AudioContext` rather than assumed to be 48 kHz.
 
 ### H. Chroma band width — **SETTLED: constant cents, not constant bins**
 Not in the original list; found while building. How wide a frequency band should each harmonic be searched over?

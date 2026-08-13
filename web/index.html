@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0d1117" />
+    <title>piano-coach — wait-mode piano practice</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎹</text></svg>" />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <!-- Landing ------------------------------------------------------------>
+    <main id="view-landing" class="view">
+      <header class="masthead">
+        <h1>piano&#8209;coach</h1>
+        <p class="tagline">
+          Play a real piano. The notes wait at the line until you play them.
+        </p>
+      </header>
+
+      <section class="panel">
+        <h2>1 &middot; Pick something to play</h2>
+        <ul id="song-list" class="song-list"></ul>
+        <label class="file-drop">
+          <input type="file" id="file-input" accept=".mid,.midi" hidden />
+          <span>Or open your own <strong>.mid</strong> file&hellip;</span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <h2>2 &middot; Which hand?</h2>
+        <div class="segmented" id="hand-select" role="radiogroup" aria-label="Hand">
+          <button role="radio" data-hand="right" aria-checked="true" class="on">Right</button>
+          <button role="radio" data-hand="left" aria-checked="false">Left</button>
+          <button role="radio" data-hand="both" aria-checked="false">Both</button>
+        </div>
+        <p class="hint">
+          Starting with one hand is the recommendation in DECISIONS&nbsp;C &mdash; one
+          stream, one verification target.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h2>3 &middot; Start</h2>
+        <button id="start-mic" class="primary" disabled>
+          Enable microphone &amp; start
+        </button>
+        <button id="start-silent" class="secondary" disabled>
+          Practice without microphone
+        </button>
+        <p class="hint" id="start-hint">Choose a song above first.</p>
+        <p id="mic-error" class="error" hidden></p>
+      </section>
+
+      <footer class="footnotes">
+        <p>
+          <strong>What this cannot do.</strong> Fingering numbers are guidance and are
+          never checked &mdash; a microphone cannot see which finger you used.
+          &ldquo;Any song&rdquo; means any MIDI file, not any recording. And how well
+          detection works depends on your piano, your room and your microphone.
+        </p>
+        <p>
+          The on&#8209;screen keyboard highlights what to play. It is never an input &mdash;
+          only the microphone is.
+        </p>
+      </footer>
+    </main>
+
+    <!-- Session ------------------------------------------------------------>
+    <main id="view-session" class="view" hidden>
+      <canvas id="roll"></canvas>
+
+      <div class="hud hud-top">
+        <button id="quit" class="ghost" title="Back to the song list">&larr; Quit</button>
+        <span id="song-title" class="song-title"></span>
+        <span id="progress" class="progress"></span>
+      </div>
+
+      <div class="hud hud-bottom">
+        <div class="status" id="status">
+          <span class="status-dot" id="status-dot"></span>
+          <span id="status-text">Waiting&hellip;</span>
+        </div>
+
+        <div class="meter" id="meter" title="Live chroma — the 12 pitch classes">
+        </div>
+
+        <div class="controls">
+          <button id="back" class="ghost" title="Previous step">&larr;</button>
+          <button id="skip" class="ghost" title="Skip this step (practice aid)">Skip &rarr;</button>
+          <button id="restart" class="ghost" title="Back to the first step">Restart</button>
+        </div>
+      </div>
+
+      <div id="rotate-hint" class="rotate-hint" hidden>
+        <p>Turn your device sideways</p>
+        <span>The piano&#8209;roll needs the width.</span>
+      </div>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

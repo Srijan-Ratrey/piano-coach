@@ -38,7 +38,7 @@ import numpy as np
 from . import audioio
 from .core import dsp
 from .core.chroma import ChromaExtractor, midi_to_hz, note_name
-from .core.onset import OnsetDetector
+from .core.onset import MIN_HISTORY_FRAMES, OnsetDetector
 from .core.verify import Verifier
 from .params import DEFAULT, Params
 from .record import CORPUS_DIR
@@ -47,9 +47,21 @@ GOLDEN_DIR = Path(__file__).parent / "golden"
 ROUND = 9
 
 
+def _quantise(samples: np.ndarray) -> np.ndarray:
+    """Round-trip through int16, exactly as the embedded vectors will be.
+
+    Expected outputs MUST be computed from the quantised samples, not the
+    originals. A port decoding int16 and comparing against float-derived
+    expectations sees ~1e-4 relative error from quantisation alone — a hundred
+    times the stated 1e-6 tolerance — and would fail for a reason that has
+    nothing to do with its own correctness.
+    """
+    pcm = np.round(np.clip(samples, -1.0, 1.0) * 32767.0).astype("<i2")
+    return pcm.astype(np.float64) / 32767.0
+
+
 def _b64_int16(samples: np.ndarray) -> str:
-    """Samples as base64 little-endian int16 — the corpus's own format, so the
-    round trip is exact rather than approximate."""
+    """Samples as base64 little-endian int16 — the corpus's own format."""
     pcm = np.round(np.clip(samples, -1.0, 1.0) * 32767.0).astype("<i2")
     return base64.b64encode(pcm.tobytes()).decode("ascii")
 
@@ -76,12 +88,15 @@ def _synthetic_signal(
     return amp * sig / peak if peak else sig
 
 
-def _synthetic_frame(midis: tuple[int, ...], params: Params, amp: float = 0.3) -> np.ndarray:
+def _synthetic_frame(
+    midis: tuple[int, ...], params: Params, amp: float = 0.3
+) -> np.ndarray:
     return _synthetic_signal(midis, params.fft_size, params, amp)
 
 
 def frame_case(name: str, samples: np.ndarray, params: Params) -> dict:
     extractor = ChromaExtractor(params)
+    samples = _quantise(samples)
     spec = dsp.spectrum(samples, params.fft_size)
     chroma, notes = extractor.chroma(spec)
 
@@ -93,9 +108,82 @@ def frame_case(name: str, samples: np.ndarray, params: Params) -> dict:
             "rms": round(dsp.rms(samples), ROUND),
             "chroma": [round(float(v), ROUND) for v in chroma],
             "top_notes": [
-                [note_name(params.midi_low + i), round(float(notes[i]), ROUND)] for i in top
+                [note_name(params.midi_low + i), round(float(notes[i]), ROUND)]
+                for i in top
             ],
         },
+    }
+
+
+def onset_trace(params: Params) -> dict:
+    """Onset detection driven by hand-built magnitude spectra, not audio.
+
+    Deliberately not an audio fixture. Embedding a signal long enough to
+    exercise warm-up, attack, refractory and sustain would roughly double the
+    file, and it would conflate FFT correctness with detector correctness — the
+    frame vectors already cover the FFT. Sixteen synthetic bins isolate the
+    logic: median tracking, the flux floor, the warm-up gate and the refractory
+    window.
+    """
+    n_bins = 16
+
+    def spectrum_at(level: float, tilt: float = 1.0) -> list[float]:
+        # A crude spectral shape; the exact values matter only in that both
+        # implementations see the same ones.
+        return [
+            round(level * (tilt**i) * (1.0 + 0.1 * ((i * 7) % 5)), 6)
+            for i in range(n_bins)
+        ]
+
+    quiet = spectrum_at(0.02, 0.95)
+    loud = spectrum_at(1.00, 0.90)
+    louder = spectrum_at(1.25, 0.90)
+    sustain = spectrum_at(0.95, 0.90)
+    second = spectrum_at(2.20, 0.90)
+
+    sequence = (
+        [(quiet, "warm-up 1 — no history yet, onsets impossible")]
+        + [(quiet, "warm-up 2")]
+        + [(quiet, "warm-up 3")]
+        + [(quiet, "steady quiet")] * 3
+        + [(loud, "ATTACK — large positive flux, history is warm")]
+        + [(louder, "attack smear — suppressed by the refractory gate")]
+        + [(louder, "attack smear")]
+        + [(louder, "attack smear")]
+        + [(louder, "attack smear")]
+        + [(sustain, "decaying — negative flux, rectified away")] * 6
+        + [(second, "SECOND ATTACK — refractory long expired")]
+        + [(second, "sustain")] * 3
+    )
+
+    detector = OnsetDetector(params)
+    steps = []
+    for spec, comment in sequence:
+        fired = bool(detector.step(np.array(spec)))
+        steps.append(
+            {
+                "comment": comment,
+                "spectrum": spec,
+                "expected": {
+                    "onset": fired,
+                    "flux": round(detector.last_flux, ROUND),
+                    "threshold": round(detector.last_threshold, ROUND),
+                },
+            }
+        )
+
+    return {
+        "description": (
+            "Synthetic magnitude spectra fed straight to the onset detector. "
+            "Exercises the warm-up gate, the adaptive median, the flux floor and "
+            "the refractory window with no FFT involved."
+        ),
+        "refractory_frames": params.onset_refractory_frames,
+        "min_history_frames": MIN_HISTORY_FRAMES,
+        "expected_onset_indices": [
+            i for i, s in enumerate(steps) if s["expected"]["onset"]
+        ],
+        "steps": steps,
     }
 
 
@@ -105,6 +193,7 @@ def verifier_trace(params: Params) -> dict:
     No audio: the point is to pin the *logic* independently of the transform,
     so a port can validate its state machine before its FFT works.
     """
+
     def c(**pcs) -> list[float]:
         v = [0.01] * 12
         for name, value in pcs.items():
@@ -125,7 +214,12 @@ def verifier_trace(params: Params) -> dict:
         (c(C=0.9, E=0.8, G=0.7), False, 0.2, "holding 3"),
         (c(C=0.9, E=0.8, G=0.7), False, 0.2, "holding 4"),
         (c(C=0.9, E=0.8, G=0.7), False, 0.2, "holding 5"),
-        (c(C=0.9, E=0.8, G=0.7), False, 0.2, "holding 6 — confirms here at default stability"),
+        (
+            c(C=0.9, E=0.8, G=0.7),
+            False,
+            0.2,
+            "holding 6 — confirms here at default stability",
+        ),
         (c(C=0.9, E=0.8, G=0.7), False, 0.2, "latched"),
         (c(C=0.2), False, 0.2, "chord released — stays latched until reset"),
     ]
@@ -190,14 +284,7 @@ def build(params: Params, corpus: Path | None) -> dict:
                 )
             )
 
-    # A short onset sequence, to pin spectral flux and the refractory gate.
-    detector = OnsetDetector(params)
-    lead = np.zeros(params.fft_size * 2)
-    body = _synthetic_signal((60, 64, 67), params.fft_size * 6, params)
-    signal = np.concatenate([lead, body])
-    onset_flags = []
-    for f in dsp.iter_frames(signal, params.fft_size, params.hop):
-        onset_flags.append(bool(detector.step(dsp.spectrum(f, params.fft_size))))
+    onset = onset_trace(params)
 
     return {
         "_comment": (
@@ -208,7 +295,8 @@ def build(params: Params, corpus: Path | None) -> dict:
         ),
         "tolerance": 1e-6,
         "params": {
-            k: (list(v) if isinstance(v, tuple) else v) for k, v in params.__dict__.items()
+            k: (list(v) if isinstance(v, tuple) else v)
+            for k, v in params.__dict__.items()
         },
         "derived": {
             "bin_hz": round(params.bin_hz, ROUND),
@@ -234,15 +322,7 @@ def build(params: Params, corpus: Path | None) -> dict:
             ],
         },
         "frames": frames,
-        "onset_sequence": {
-            "description": (
-                "Two frames of digital silence then a repeated C major frame. "
-                "Exactly one onset is expected, after the warm-up window, and the "
-                "refractory gate must suppress the rest of the attack burst."
-            ),
-            "expected_onset_frames": [i for i, f in enumerate(onset_flags) if f],
-            "total_frames": len(onset_flags),
-        },
+        "onset_trace": onset,
         "verifier_trace": verifier_trace(params),
     }
 
@@ -285,7 +365,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"wrote {args.out} ({size_kb:.0f} KB)")
     print(f"  {len(data['frames'])} frame vectors")
     print(f"  {len(data['verifier_trace']['steps'])} verifier trace steps")
-    print(f"  onsets at frames {data['onset_sequence']['expected_onset_frames']}")
+    print(
+        f"  {len(data['onset_trace']['steps'])} onset trace steps, "
+        f"onsets at {data['onset_trace']['expected_onset_indices']}"
+    )
     return 0
 
 

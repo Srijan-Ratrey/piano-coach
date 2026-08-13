@@ -1,0 +1,20 @@
+{
+  "name": "piano-coach-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Wait-mode piano learning web page \u2014 browser app",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test test/*.test.js",
+    "verify:golden": "node --test test/golden.test.js"
+  },
+  "dependencies": {
+    "@tonejs/midi": "^2.0.28"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

@@ -7,36 +7,50 @@ advancing. No install, no MIDI hardware, no backend.
 Two features: recognise the keys and chords played through a microphone, and
 play any song with a wait-mode learning loop.
 
+- [`web/`](web/) — the browser app: piano-roll, microphone, wait-mode loop
+- [`spike/`](spike/) — the validation spike: does detection actually work on your piano?
 - [`piano-coach-plan.md`](piano-coach-plan.md) — the plan
 - [`piano-coach-decisions.md`](piano-coach-decisions.md) — locked decisions and why
-- [`spike/`](spike/) — **the validation spike: where the project currently is**
 
 ---
 
 ## Status
 
-**Milestone 1 of the build order: the validation spike.** Not the app.
+Two halves, both working, one of them unmeasured.
 
-Both planning documents make this a hard gate (DECISION #12, and PLAN's "prove
-it before building the UI"). The spike is a measuring instrument: record a
-labelled corpus of chords on a real piano, run chroma verification over it
-offline, and get a number that says build / don't build / build with
-constraints.
+**The browser app** ([`web/`](web/)) — PLAN build-order steps 5 and 6. Loads a
+MIDI file, renders the landscape piano-roll with falling bars and a vertical
+keyboard, listens through the microphone, and advances only when the target
+notes are confirmed. 21 tests, including a suite that proves the JS reproduces
+the Python DSP to 1e-6.
 
-The tooling is built and tested (29 tests, no microphone required). What is
-missing is a corpus recorded on a real piano — see
-[`spike/README.md`](spike/README.md).
+**The validation spike** ([`spike/`](spike/)) — the go/no-go gate from
+DECISION #12. Fully built and tested (29 tests), but **the corpus has not been
+recorded**, so `spike/RESULTS.md` is still empty.
 
-Nothing downstream — MIDI parsing, the piano-roll, the wait-mode loop, any
-browser code — exists yet, by design.
+That ordering is worth being blunt about. The documents say to run the gate
+before building the UI, and the UI got built first at the user's direction. The
+consequence is specific and bounded: the app runs on the spike's *untuned
+default* thresholds, so how well microphone detection works is currently
+unknown rather than measured. Recording the corpus is what turns it from a guess
+into a number — and the tuned constants then flow into
+[`web/src/audio/params.js`](web/src/audio/params.js).
 
 ```bash
-uv run pytest                            # the maths, on synthetic signals
-uv run python -m spike.live --check      # the microphone
-uv run python -m spike.live              # the pipeline, live
-uv run python -m spike.record            # record the corpus
-uv run python -m spike.score             # the go/no-go measurement
+# The app
+cd web && npm install && npm test && npm run dev
+
+# The gate — ten minutes at a real piano
+uv run pytest                          # the maths, on synthetic signals
+uv run python -m spike.live --check    # the microphone
+uv run python -m spike.record          # record the corpus
+uv run python -m spike.score           # the go/no-go measurement
+uv run python -m spike.sweep           # tuned operating point
 ```
+
+Not built: tempo control, section loops as UI, per-hand difficulty thinning,
+the library screen, audible playback of passed notes, PWA packaging, and
+Layer 2 free-play recognition.
 
 ---
 
@@ -121,7 +135,9 @@ deliberately:
   half* is wrong.
 
 Without that, a spike that passes in Python and a port that behaves differently
-would mean the gate measured nothing.
+would mean the gate measured nothing. The port exists now and passes those
+vectors (`cd web && npm run verify:golden`), so a number measured offline
+describes what the browser actually does.
 
 ---
 
