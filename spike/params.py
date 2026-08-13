@@ -35,9 +35,18 @@ expected to be the weak point. `sweep.py` also tries 16384 (2.93 Hz bins,
 341 ms window) to measure what the extra resolution buys and what it costs in
 latency."""
 
-HOP = 2048
-"""Samples between successive frames — 42.7 ms at 48 kHz. Fine enough that the
-250 ms stability window is ~6 frames, coarse enough to stay cheap."""
+HOP = 1024
+"""Samples between successive frames — 21.3 ms at 48 kHz.
+
+Halved from 2048 to cut latency. A verdict can only be reported on a frame
+boundary, so the hop is a quantisation error on every confirmation: at 2048 a
+confirmation could sit up to 42.7 ms late for no reason other than when the
+frames happened to fall. This is the one latency lever with no accuracy cost —
+it changes *when* the answer is available, not what the answer is.
+
+Measured cost of the extra frames: one frame (8192-point FFT plus chroma) takes
+0.178 ms, so 47 frames/s is about 8% of one core. Affordable in a browser
+alongside rendering."""
 
 # --- Pitch range -----------------------------------------------------------
 
@@ -105,10 +114,20 @@ count as a wrong note. That deadband is what stops overtone leakage from
 reading as a played wrong note — which PLAN flags as the failure mode that
 makes everything read 'correct' if you get it wrong in the other direction."""
 
-STABILITY_MS = 250
+STABILITY_MS = 175
 """How long the match condition must hold continuously before confirming.
-Open decision B. Long enough to reject a brushed key, short enough to stay
-inside the 700 ms latency budget from DECISIONS #3."""
+Open decision B, and by far the largest term in perceived latency.
+
+Measured end-to-end on the JS port: strike to confirmation was 323 ms, of which
+the onset was detected at just +24 ms — so the stability window was ~77% of the
+delay, and it read as sluggish. Scoring the synthetic corpus across 100-300 ms
+showed recall and false-confirms completely flat while latency scaled linearly.
+
+Treat that evidence as weak in one specific way: synthetic tones have almost no
+attack transient, and rejecting transients is precisely what this window is
+for. So the corpus cannot see the cost of shortening it. 175 ms is a deliberate
+step back from the measured-free 100 ms, keeping a real margin until the actual
+piano corpus can settle it."""
 
 # --- Onset gating ----------------------------------------------------------
 
@@ -120,10 +139,13 @@ Without onset gating a chord still ringing from the previous step satisfies the
 next step for free, and the whole wait-mode loop runs away on its own. This is
 mandatory, not a refinement."""
 
-ONSET_WINDOW_FRAMES = 21
-"""Frames of flux history used for the adaptive median. ~0.9 s at the default
-hop — long enough to characterise 'normal' for the current passage, short
-enough to track a crescendo."""
+ONSET_WINDOW_FRAMES = 42
+"""Frames of flux history used for the adaptive median.
+
+Specified in frames but its *purpose* is a wall-clock span: ~0.9 s, long enough
+to characterise 'normal' for the current passage, short enough to track a
+crescendo. Doubled alongside the halved hop to keep that span the same — left
+at 21 it would have silently become a 0.45 s window."""
 
 ONSET_FLUX_FLOOR = 0.10
 """Floor on flux as a fraction of the frame's total magnitude — an onset must

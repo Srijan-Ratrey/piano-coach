@@ -14,6 +14,7 @@ const $ = (id) => document.getElementById(id);
 
 const TEMPO_KEY = 'piano-coach.tempo';
 const MODE_KEY = 'piano-coach.mode';
+const RESPONSE_KEY = 'piano-coach.response';
 
 const state = {
   catalogue: [],
@@ -26,6 +27,7 @@ const state = {
   lastTick: 0,
   tempo: 1.0,
   mode: WAIT,
+  responseMs: 175,
   useMic: false,
 };
 
@@ -189,6 +191,7 @@ async function beginSession({ useMic }) {
 
   state.session.setTempo(state.tempo);
   state.session.setMode(state.mode);
+  state.session.setResponseMs(state.responseMs);
   state.session.start();
   applyModeToControls();
   checkOrientation();
@@ -357,7 +360,17 @@ function setMode(mode, { persist = true } = {}) {
   }
 }
 
+function setResponse(ms, { persist = true } = {}) {
+  state.responseMs = ms;
+  $('response').value = String(ms);
+  state.session?.setResponseMs(ms);
+  if (persist) {
+    try { localStorage.setItem(RESPONSE_KEY, String(ms)); } catch { /* private mode */ }
+  }
+}
+
 $('tempo').addEventListener('input', (event) => setTempo(Number(event.target.value)));
+$('response').addEventListener('change', (event) => setResponse(Number(event.target.value)));
 
 for (const button of document.querySelectorAll('#mode-select button')) {
   button.addEventListener('click', () => setMode(button.dataset.mode));
@@ -369,9 +382,12 @@ try {
   if (savedTempo >= 25 && savedTempo <= 150) setTempo(savedTempo, { persist: false });
   else setTempo(100, { persist: false });
   setMode(localStorage.getItem(MODE_KEY) ?? WAIT, { persist: false });
+  const savedResponse = Number(localStorage.getItem(RESPONSE_KEY));
+  setResponse([125, 175, 250].includes(savedResponse) ? savedResponse : 175, { persist: false });
 } catch {
   setTempo(100, { persist: false });
   setMode(WAIT, { persist: false });
+  setResponse(175, { persist: false });
 }
 
 window.addEventListener('keydown', (event) => {

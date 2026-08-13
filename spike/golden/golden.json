@@ -4,7 +4,7 @@
   "params": {
     "sample_rate": 48000,
     "fft_size": 8192,
-    "hop": 2048,
+    "hop": 1024,
     "midi_low": 36,
     "midi_high": 96,
     "harmonic_weights": [
@@ -17,9 +17,9 @@
     "max_neighbour_bins": 3,
     "present_thresh": 0.35,
     "extra_margin": 0.5,
-    "stability_ms": 250,
+    "stability_ms": 175,
     "onset_flux_ratio": 2.0,
-    "onset_window_frames": 21,
+    "onset_window_frames": 42,
     "onset_flux_floor": 0.1,
     "onset_refractory_ms": 170,
     "silence_rms": 0.005,
@@ -28,10 +28,10 @@
   },
   "derived": {
     "bin_hz": 5.859375,
-    "frame_interval_ms": 42.666666667,
-    "stability_frames": 6,
-    "window_smear_frames": 5,
-    "onset_refractory_frames": 5
+    "frame_interval_ms": 21.333333333,
+    "stability_frames": 9,
+    "window_smear_frames": 9,
+    "onset_refractory_frames": 9
   },
   "checks": {
     "hann_periodic_8": [
@@ -415,7 +415,7 @@
   ],
   "onset_trace": {
     "description": "Synthetic magnitude spectra fed straight to the onset detector. Exercises the warm-up gate, the adaptive median, the flux floor and the refractory window with no FFT involved.",
-    "refractory_frames": 5,
+    "refractory_frames": 9,
     "min_history_frames": 3,
     "expected_onset_indices": [
       6,
@@ -976,7 +976,7 @@
       4,
       7
     ],
-    "stability_frames": 6,
+    "stability_frames": 9,
     "steps": [
       {
         "comment": "silence \u2014 below the RMS gate",
@@ -1353,8 +1353,8 @@
           "targets_present": true,
           "extras": [],
           "frames_held": 6,
-          "confirmed_now": true,
-          "latched": true
+          "confirmed_now": false,
+          "latched": false
         }
       },
       {
@@ -1383,7 +1383,7 @@
           "extras": [],
           "frames_held": 7,
           "confirmed_now": false,
-          "latched": true
+          "latched": false
         }
       },
       {
@@ -1412,7 +1412,7 @@
           "extras": [],
           "frames_held": 0,
           "confirmed_now": false,
-          "latched": true
+          "latched": false
         }
       }
     ]

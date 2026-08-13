@@ -101,6 +101,15 @@
           <output id="tempo-value">100%</output>
         </label>
 
+        <label class="tempo" title="How long a match must hold before it counts. Shorter feels quicker but is more likely to accept a brushed key.">
+          <span>Response</span>
+          <select id="response">
+            <option value="125">Fast</option>
+            <option value="175" selected>Balanced</option>
+            <option value="250">Careful</option>
+          </select>
+        </label>
+
         <div class="controls">
           <button id="back" class="ghost" title="Previous step">&larr;</button>
           <button id="skip" class="ghost" title="Skip this step (practice aid)">Skip &rarr;</button>

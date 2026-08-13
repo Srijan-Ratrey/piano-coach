@@ -10,9 +10,11 @@
  */
 
 export const DEFAULT_PARAMS = Object.freeze({
+  // Mirrors spike/params.py exactly. The docstrings there carry the reasoning
+  // for each value; golden.json is what proves the two are still in step.
   sampleRate: 48000,
   fftSize: 8192,
-  hop: 2048,
+  hop: 1024,
 
   midiLow: 36, // C2
   midiHigh: 96, // C7
@@ -23,10 +25,10 @@ export const DEFAULT_PARAMS = Object.freeze({
 
   presentThresh: 0.35,
   extraMargin: 0.5,
-  stabilityMs: 250,
+  stabilityMs: 175,
 
   onsetFluxRatio: 2.0,
-  onsetWindowFrames: 21,
+  onsetWindowFrames: 42,
   onsetFluxFloor: 0.1,
   onsetRefractoryMs: 170,
 

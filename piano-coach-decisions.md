@@ -66,9 +66,17 @@ longer matters of preference. F is settled — see below.
 When verifying a target chord, how hard do you reject *extra* pitches (overtones, neighbouring keys)?
 → *Recommendation:* require all target pitch-classes present AND no unexpected pitch-class louder than a margin. Tune the margin during the spike.
 
-### B. Stability window
+### B. Stability window — **interim value 175 ms; still open**
 How many consecutive frames must the target hold before advancing?
 → *Recommendation:* ~200–300 ms. Long enough to reject a brushed key, short enough to feel responsive. Make it a constant to tune.
+→ **Reported as laggy in use, so it was measured.** Strike-to-confirmation through the JS port was **323 ms**, and the breakdown put the blame squarely here: the onset was detected at just **+24 ms**, so the 250 ms hold was ~77% of the delay. Two changes brought it to **259 ms** (C4) / **195 ms** (C6):
+
+- `HOP` 2048 → 1024. Pure win, no accuracy trade — the hop is a quantisation error on every verdict, since a confirmation can only be reported on a frame boundary. Costs ~8% of one core (a frame is 0.178 ms measured).
+- `STABILITY_MS` 250 → 175. Scoring the synthetic corpus from 100–300 ms showed recall and false-confirms **completely flat** while latency scaled linearly.
+
+→ **Why this stays open.** That corpus evidence is weak in a specific way: synthetic tones have almost no attack transient, and rejecting transients is exactly what this window is for, so the test is close to blind to the cost of shortening it. 175 ms is a deliberate step back from the measured-free 100 ms. The real corpus settles it. Meanwhile the session exposes a **Response** control (Fast 125 / Balanced 175 / Careful 250) — the right value is hardware-dependent, and letting the player find their own point beats a number picked blind.
+
+→ Note the remaining ~60 ms before the hold even begins: the 171 ms analysis window has to fill with enough of the note for the chroma to be dominated by it. Only a smaller `FFT_SIZE` would cut that, and it would cost bass resolution, which is already the weakest register.
 
 ### C. Single-hand vs two-hand for v1
 → *Recommendation:* single-hand first (one stream, one verification target). Add the two-hand overlay in v2 once verification is solid.

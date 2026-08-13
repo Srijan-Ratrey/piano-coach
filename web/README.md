@@ -114,6 +114,33 @@ next to the step logic.
 a background tab, so the first frame back reports the entire absence and would
 otherwise jump the song clock by that much.
 
+## Detection latency
+
+Measured strike-to-confirmation through this code: **259 ms** for C4, **195 ms**
+for C6. Inside the 300–700 ms budget in DECISIONS #3, and it breaks down as:
+
+| | |
+|---|---|
+| onset detected | +24 ms |
+| chroma becomes dominated by the note | ~+60 ms |
+| stability hold | 175 ms |
+| frame quantisation | up to 21 ms |
+
+The stability hold is the dominant term, so the **Response** control (Fast 125 /
+Balanced 175 / Careful 250 ms) is the dial that matters. Shorter feels quicker
+and is likelier to accept a brushed key or an attack transient. The right value
+is hardware-dependent, and until a corpus is recorded it is not a measured
+number — hence a control rather than a fixed choice.
+
+The ~60 ms before the hold even starts is inherent: the 171 ms window has to
+fill with enough of the note. Only a smaller `fftSize` would cut it, at the cost
+of bass resolution, which is already the weakest register.
+
+**Changing any of these means changing `spike/params.py` too**, then
+`uv run python -m spike.export_golden` and `npm test`. The golden vectors are
+what keep the two implementations honest; drift there and the spike stops
+describing the app.
+
 A miss flashes the **keys**, not the bar. A step is only declared missed a
 grace period after it crosses the line, by which point its bar is mostly
 clipped under the keyboard; the keys are stationary and already where the

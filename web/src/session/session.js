@@ -96,6 +96,29 @@ export class PracticeSession {
     this.tempo = Math.min(MAX_TEMPO, Math.max(MIN_TEMPO, tempo));
   }
 
+  /**
+   * How long a match must hold before it counts (open decision B).
+   *
+   * Exposed to the player because it is the dominant term in perceived
+   * latency — measured at 175 ms of a 259 ms strike-to-confirm — and because
+   * the right value is hardware-dependent, which DECISIONS says plainly. Until
+   * a corpus has been recorded on the actual piano, the player finding their
+   * own point beats a number picked blind.
+   *
+   * Only verification fields change here, never transform fields, so the
+   * chroma extractor and its band table stay valid. The verifier is rebuilt on
+   * the next `setTarget`, which is why the current step is re-armed.
+   */
+  setResponseMs(stabilityMs) {
+    this.params = { ...this.params, stabilityMs };
+    this.analyser.params = this.params;
+    const step = this.currentStep;
+    if (step) {
+      const target = targetForStep(step, this.params);
+      this.analyser.setTarget(target.length ? target : null);
+    }
+  }
+
   setMode(mode) {
     this.mode = mode === PLAY ? PLAY : WAIT;
     // Leaving PLAY mid-flight can strand the clock past the current step, which

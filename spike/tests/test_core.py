@@ -10,6 +10,8 @@ needs no corpus, no microphone and no macOS permissions.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 import pytest
 
@@ -318,8 +320,32 @@ def test_latency_is_measured_from_the_onset():
 
 
 def test_stability_frames_derivation():
-    assert DEFAULT.frame_interval_ms == pytest.approx(1000 * 2048 / 48000)
-    assert DEFAULT.stability_frames == 6  # ceil(250 / 42.67)
+    """Assert the relationships rather than the literals, so retuning a
+    constant does not fail this test for the wrong reason — but a broken
+    derivation still does."""
+    assert DEFAULT.frame_interval_ms == pytest.approx(
+        1000 * DEFAULT.hop / DEFAULT.sample_rate
+    )
+    assert DEFAULT.stability_frames == math.ceil(
+        DEFAULT.stability_ms / DEFAULT.frame_interval_ms
+    )
+
+
+def test_latency_budget_is_within_the_documented_limit():
+    """DECISIONS #3 budgets 300-700 ms to confirm. The floor is the stability
+    window plus one frame of quantisation plus the time for the attack to fill
+    enough of the window to be detected."""
+    floor_ms = DEFAULT.stability_ms + DEFAULT.frame_interval_ms
+    assert floor_ms < 700, f"cannot confirm inside the budget: {floor_ms:.0f} ms"
+
+
+def test_onset_median_window_is_about_nine_tenths_of_a_second():
+    """ONSET_WINDOW_FRAMES is expressed in frames but exists to span a fixed
+    wall-clock period. Halving the hop without doubling it would silently cut
+    the adaptive median's history in half, which is exactly the kind of coupling
+    that breaks quietly."""
+    span_ms = DEFAULT.onset_window_frames * DEFAULT.frame_interval_ms
+    assert 700 < span_ms < 1200, f"adaptive median spans {span_ms:.0f} ms"
 
 
 def test_bin_width_matches_the_documented_resolution_risk():
