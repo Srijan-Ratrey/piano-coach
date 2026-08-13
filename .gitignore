@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Plots are regenerated from the corpus on demand; the corpus itself IS committed
+# (it is the evidence behind the go/no-go call), but rendered images are not.
+spike/plots/
+*.png
+
+.DS_Store

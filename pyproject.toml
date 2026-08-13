@@ -1,0 +1,26 @@
+[project]
+name = "piano-coach"
+version = "0.1.0"
+description = "Wait-mode piano learning — Layer 1 validation spike"
+readme = "README.md"
+requires-python = ">=3.14"
+
+# Deliberately minimal. No scipy, no librosa: every DSP operation used here must
+# have a straightforward equivalent in the browser, because this code gets ported
+# to Web Audio + plain JS once the spike clears its gate. See DECISION #16.
+dependencies = [
+    "numpy>=2.3",
+    "sounddevice>=0.5",
+    "matplotlib>=3.10",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3"]
+
+[tool.uv]
+# The spike is a set of scripts run as `python -m spike.<name>`, not a library
+# to install. Nothing here needs building.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["spike/tests"]
