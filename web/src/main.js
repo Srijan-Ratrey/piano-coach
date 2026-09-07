@@ -5,6 +5,7 @@
 
 import { DEFAULT_PARAMS } from './audio/params.js';
 import { startMic, MicError } from './audio/mic.js';
+import { InputMonitor, OK as INPUT_OK, QUIET } from './audio/input-monitor.js';
 import { PITCH_CLASS_NAMES } from './audio/chroma.js';
 import {
   DIFFICULTIES,
@@ -39,6 +40,7 @@ const state = {
   responseMs: 175,
   difficulty: FULL,
   useMic: false,
+  inputMonitor: null,
 };
 
 // --- Landing ---------------------------------------------------------------
@@ -211,9 +213,13 @@ async function beginSession({ useMic }) {
   if (useMic) {
     try {
       state.mic = await startMic(DEFAULT_PARAMS, (block) => {
+        // The monitor sees the raw block, before windowing — peak and clipping
+        // are properties of the signal as captured, not of an analysis frame.
+        state.inputMonitor?.push(block);
         state.session?.pushAudio(block);
       });
       params = state.mic.params;
+      state.inputMonitor = new InputMonitor(params);
     } catch (err) {
       if (err instanceof MicError) {
         showError(
@@ -232,7 +238,16 @@ async function beginSession({ useMic }) {
   $('view-session').hidden = false;
 
   meterBins = buildMeter();
-  $('song-title').textContent = song.name + (useMic ? '' : '  ·  no microphone');
+  $('song-title').textContent = song.name;
+
+  // Naming the device is half the diagnosis when nothing is being heard: it is
+  // the fastest way to notice the browser picked a different input than the
+  // one you are playing into.
+  const deviceEl = $('input-device');
+  deviceEl.hidden = false;
+  deviceEl.textContent = useMic ? `mic: ${state.mic.deviceLabel}` : 'no microphone';
+  deviceEl.classList.remove('bad');
+  $('input-warning').hidden = true;
 
   state.useMic = useMic;
   state.roll = new PianoRoll($('roll'), song);
@@ -276,6 +291,7 @@ async function beginSession({ useMic }) {
     const dt = Math.min(0.05, (now - state.lastTick) / 1000);
     state.lastTick = now;
     state.session.tick(dt);
+    updateInputHealth();
     state.roll.setScroll(state.session.songTime);
     state.roll.tick(dt);
     state.roll.draw();
@@ -299,6 +315,32 @@ function applyModeToControls() {
       ? 'Not available in play-along — the clock advances the song'
       : 'Skip this step (practice aid)';
   setStatus(state.mode === PLAY ? 'holding' : 'waiting', idleHint());
+}
+
+/**
+ * Surface input problems, which otherwise present exactly like a detection
+ * failure: the roll simply never advances.
+ */
+function updateInputHealth() {
+  const monitor = state.inputMonitor;
+  const el = $('input-warning');
+  if (!monitor || !monitor.ready) {
+    el.hidden = true;
+    return;
+  }
+
+  const verdict = monitor.verdict;
+  if (verdict === INPUT_OK) {
+    el.hidden = true;
+    $('input-device').classList.remove('bad');
+    return;
+  }
+
+  el.hidden = false;
+  // "Quiet" is advice; silence and clipping mean nothing can work at all.
+  el.classList.toggle('warn', verdict === QUIET);
+  el.textContent = monitor.advice;
+  $('input-device').classList.toggle('bad', verdict !== QUIET);
 }
 
 function updateProgress() {
@@ -344,6 +386,9 @@ async function endSession() {
   state.raf = null;
   await state.mic?.stop();
   state.mic = null;
+  state.inputMonitor = null;
+  $('input-warning').hidden = true;
+  $('input-device').hidden = true;
   state.session = null;
   state.roll = null;
   $('view-session').hidden = true;

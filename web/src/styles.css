@@ -200,7 +200,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .song-title { font-weight: 600; font-size: 14px; }
 
 .progress {
-  margin-left: auto;
   color: var(--dim);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -325,6 +324,42 @@ button.ghost:hover { color: var(--text); border-color: #37414f; }
   .status { min-width: 0; }
   .status #status-text { display: none; }
   .tempo span { display: none; }
+}
+
+.input-device {
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 12px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.input-device.bad { color: var(--bad); }
+
+/* Deliberately loud and centred over the roll. A dead microphone is
+   indistinguishable from "my playing is not being recognised", and quietly
+   tinting a label would leave it looking like a detection failure. */
+.input-warning {
+  position: absolute;
+  left: 50%;
+  top: 96px;
+  transform: translateX(-50%);
+  max-width: 520px;
+  padding: 9px 15px;
+  background: #241413;
+  border: 1px solid #63302b;
+  border-radius: 9px;
+  color: #f5a79e;
+  font-size: 13px;
+  text-align: center;
+}
+
+.input-warning.warn {
+  background: #241f10;
+  border-color: #5e5227;
+  color: #e8cf8a;
 }
 
 .rotate-hint {

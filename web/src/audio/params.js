@@ -34,6 +34,11 @@ export const DEFAULT_PARAMS = Object.freeze({
 
   silenceRms: 0.005,
 
+  // Mirrors CLIP_THRESHOLD in spike/params.py. Not used by verification — it
+  // is how the input monitor decides the signal is distorting, and distortion
+  // manufactures harmonics that read as extra notes.
+  clipThreshold: 0.98,
+
   octaveMode: false,
   harmonicExclusion: false,
 });

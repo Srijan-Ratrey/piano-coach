@@ -5,7 +5,7 @@ wait until you play them on a real piano.
 
 ```bash
 npm install
-npm test        # 44 tests — must pass before trusting anything below
+npm test        # 54 tests — must pass before trusting anything below
 npm run dev     # http://localhost:5173
 ```
 
@@ -113,6 +113,30 @@ next to the step logic.
 `main.js` clamps `dt` to 50 ms. Not cosmetic — `requestAnimationFrame` stops in
 a background tab, so the first frame back reports the entire absence and would
 otherwise jump the song clock by that much.
+
+## Is it the input, or is it you?
+
+`src/audio/input-monitor.js` watches the raw signal and says when the *input* is
+at fault. It is the browser counterpart of `spike/live.py --check`, and it
+exists because "your playing was not recognised" and "no audio is arriving"
+look identical from the player's seat — the roll just sits there.
+
+The trap it is built for: a browser can grant microphone permission and then
+deliver silence, because the wrong input device is selected or something is
+muted. Nothing throws. Every number downstream stays well-formed and
+meaningless. So the check is for a peak near zero rather than exactly zero — a
+muted-but-live input still carries dither, and a literal `=== 0` test misses
+precisely the case that matters.
+
+Verdicts over a 2.5 s window, worst first: `silent`, `clipping`, `quiet`, `ok`.
+Clipping outranks quiet deliberately — distortion manufactures harmonics that
+read as extra notes, so it blocks matches outright rather than merely making
+them harder. `quiet` uses the same `silenceRms` gate the verifier uses to
+discard a frame, so it warns exactly when frames are being thrown away.
+
+The active microphone's name is shown in the session header. Naming the device
+is half the diagnosis: it is the quickest way to notice the browser picked a
+different input from the one you are playing into.
 
 ## Difficulty, and why a step can look like it is refusing you
 
