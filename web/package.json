@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
     "verify:golden": "node --test test/golden.test.js",
-    "deploy": "vite build && npx --yes wrangler@latest deploy"
+    "deploy": "vite build && npx --yes wrangler@latest deploy --config ../wrangler.jsonc"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28"

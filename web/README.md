@@ -20,7 +20,17 @@ microphone. Testing on a phone needs HTTPS.
 
     cd web && npm run deploy          # after `npx wrangler login` once
 
-Static assets on Cloudflare, no Worker script — see `wrangler.jsonc`.
+Static assets on Cloudflare, no Worker script. **`wrangler.jsonc` lives at the
+repo root**, not here, because Cloudflare's git-connected build clones and runs
+from there — with the config under `web/` it was never found, so wrangler
+guessed an output directory of `web` and shipped the source tree.
+
+For the git-connected build, the dashboard must be told to build the app:
+
+    Build command:  cd web && npm install && npm run build
+
+Without it Cloudflare detects the Python project at the repo root, runs
+`uv sync`, never runs Vite, and deploys a `dist` that does not exist.
 
 **Check more than the front page afterwards.** A deploy can land `index.html`
 while the asset upload fails, which looks fine at a glance — the URL answers

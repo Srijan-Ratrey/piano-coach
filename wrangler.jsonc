@@ -1,0 +1,17 @@
+{
+  // Pure static site — no Worker script. `assets` with no `main` is all a
+  // client-side app needs. Cloudflare serves it over HTTPS for free, which
+  // getUserMedia requires: mic access is blocked on plain HTTP except localhost.
+  //
+  // Lives at the REPO ROOT, not in web/, because Cloudflare's git-connected
+  // build clones and runs from here. With the config in web/ it was never found,
+  // so wrangler guessed "output directory: web" and shipped the source tree —
+  // 37 files, no build, no dist, every asset a 404.
+  //
+  // `directory` is resolved relative to this file.
+  //
+  // No SPA fallback: routing is query params (?song=&hand=&mode=), never paths.
+  "name": "piano-coach",
+  "compatibility_date": "2026-09-22",
+  "assets": { "directory": "./web/dist" }
+}
