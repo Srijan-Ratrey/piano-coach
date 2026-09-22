@@ -268,14 +268,17 @@ def main(argv: list[str]) -> int:
     # The index is built by SCANNING the directory, not from SONGS, so dropping
     # a downloaded .mid in here and re-running is all it takes to add a song.
     # Generated tunes get their stored blurb; anything else is listed by name.
+    # Generated tunes keep their DECLARED order — scale-and-chords is first on
+    # purpose, being the fastest way to find out whether detection works at all,
+    # and chord-drill is last because it is the unflattering one. Plain
+    # alphabetical would put the hard case first for a new player. Anything
+    # added locally follows, sorted.
     notes = {slug: note for slug, (_, _, note) in SONGS.items()}
+    order = {slug: i for i, slug in enumerate(SONGS)}
+    files = sorted(out.glob("*.mid"), key=lambda f: (order.get(f.stem, len(order)), f.stem))
     index = [
-        {
-            "slug": f.stem,
-            "file": f.name,
-            "note": notes.get(f.stem, "added locally"),
-        }
-        for f in sorted(out.glob("*.mid"))
+        {"slug": f.stem, "file": f.name, "note": notes.get(f.stem, "added locally")}
+        for f in files
     ]
 
     (out / "index.json").write_text(json.dumps(index, indent=2) + "\n")

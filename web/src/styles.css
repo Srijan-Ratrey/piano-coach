@@ -316,6 +316,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 }
 .file-drop:hover { border-color: var(--left); color: var(--text); }
 
+.sources { line-height: 1.7; }
+.sources a { color: var(--left); text-decoration: none; border-bottom: 1px solid rgba(74, 163, 255, 0.35); }
+.sources a:hover { border-bottom-color: var(--left); }
+.sources .dimmer { color: #6d7684; font-size: 12px; }
+
 /* --- segmented --- */
 
 #view-landing .segmented {

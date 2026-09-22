@@ -1,8 +1,8 @@
 [
   {
-    "slug": "chord-drill",
-    "file": "chord-drill.mid",
-    "note": "Four-note chords \u2014 the hard case"
+    "slug": "scale-and-chords",
+    "file": "scale-and-chords.mid",
+    "note": "C major scale, then triads"
   },
   {
     "slug": "ode-to-joy",
@@ -10,13 +10,13 @@
     "note": "Beethoven, 1824"
   },
   {
-    "slug": "scale-and-chords",
-    "file": "scale-and-chords.mid",
-    "note": "C major scale, then triads"
-  },
-  {
     "slug": "twinkle",
     "file": "twinkle.mid",
     "note": "Traditional"
+  },
+  {
+    "slug": "chord-drill",
+    "file": "chord-drill.mid",
+    "note": "Four-note chords \u2014 the hard case"
   }
 ]
