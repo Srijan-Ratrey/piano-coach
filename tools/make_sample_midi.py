@@ -257,18 +257,29 @@ SONGS = {
 
 def main(argv: list[str]) -> int:
     out = Path(argv[1]) if len(argv) > 1 else Path("web/public/midi")
-    index = []
     for slug, (build, tempo, note) in SONGS.items():
         right, left = build()
         path = out / f"{slug}.mid"
         write_midi(path, right, left, tempo)
-        index.append({"slug": slug, "file": f"{slug}.mid", "note": note})
         print(f"wrote {path}  ({len(right)} right, {len(left)} left, {tempo} bpm)")
 
     import json
 
+    # The index is built by SCANNING the directory, not from SONGS, so dropping
+    # a downloaded .mid in here and re-running is all it takes to add a song.
+    # Generated tunes get their stored blurb; anything else is listed by name.
+    notes = {slug: note for slug, (_, _, note) in SONGS.items()}
+    index = [
+        {
+            "slug": f.stem,
+            "file": f.name,
+            "note": notes.get(f.stem, "added locally"),
+        }
+        for f in sorted(out.glob("*.mid"))
+    ]
+
     (out / "index.json").write_text(json.dumps(index, indent=2) + "\n")
-    print(f"wrote {out / 'index.json'}")
+    print(f"wrote {out / 'index.json'}  ({len(index)} songs listed)")
     return 0
 
 

@@ -201,6 +201,38 @@ grace period after it crosses the line, by which point its bar is mostly
 clipped under the keyboard; the keys are stationary and already where the
 player is looking.
 
+## Adding songs
+
+Any `.mid` works, two ways:
+
+**Just play one** — the file picker on the landing page. Nothing to install,
+nothing committed, never leaves your machine.
+
+**Bundle it** — drop the file in `web/public/midi/` and run:
+
+    uv run python tools/make_sample_midi.py web/public/midi
+
+That rebuilds `index.json` by *scanning the directory*, so the only step is
+dropping the file in. It then appears in the list and ships with a deploy.
+
+Where to get them, free and legally clean:
+
+| | |
+|---|---|
+| [piano-midi.de](http://www.piano-midi.de/) | classical, well-sequenced, CC BY-SA |
+| [Mutopia Project](https://www.mutopiaproject.org/) | public domain, clean sources |
+| [IMSLP](https://imslp.org/) | public-domain scores, some MIDI |
+| MuseScore | huge, but licensing is per-upload — check before bundling |
+
+**Copyright is the real constraint, not the format.** A MIDI arrangement of a
+modern pop song is a derivative work. Downloading one to practise at home is
+your business; committing it to this repo and deploying it publicly is
+distribution, and that is a different thing. The bundled four are public domain
+or generated here, which is why they are the bundled four.
+
+Easy and safely public domain, if you want starting points: Für Elise,
+Minuet in G, Canon in D, Greensleeves, Amazing Grace, Scarborough Fair.
+
 ## Deep links
 
 `?song=<slug>&hand=right|left|both&mode=wait|play&tempo=<25-150>` opens straight
