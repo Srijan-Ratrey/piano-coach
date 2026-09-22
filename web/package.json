@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
-    "verify:golden": "node --test test/golden.test.js"
+    "verify:golden": "node --test test/golden.test.js",
+    "deploy": "vite build && npx --yes wrangler@latest deploy"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28"

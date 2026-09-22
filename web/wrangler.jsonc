@@ -1,0 +1,12 @@
+{
+  // Pure static site — no Worker script. `assets` with no `main` is all a
+  // client-side app needs. Cloudflare serves it over HTTPS for free, which
+  // getUserMedia requires: mic access is blocked on plain HTTP everywhere
+  // except localhost.
+  //
+  // No SPA fallback configured on purpose — routing is query params
+  // (?song=&hand=&mode=), never paths, so index.html is always the entry.
+  "name": "piano-coach",
+  "compatibility_date": "2026-09-22",
+  "assets": { "directory": "./dist" }
+}
