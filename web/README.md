@@ -219,10 +219,14 @@ Where to get them, free and legally clean:
 
 | | |
 |---|---|
-| [piano-midi.de](http://www.piano-midi.de/) | classical, well-sequenced, CC BY-SA |
+| [MuseScore](https://musescore.com/sheetmusic) | biggest selection; licensing is per-upload, check before bundling |
 | [Mutopia Project](https://www.mutopiaproject.org/) | public domain, clean sources |
 | [IMSLP](https://imslp.org/) | public-domain scores, some MIDI |
-| MuseScore | huge, but licensing is per-upload — check before bundling |
+| [BitMidi](https://bitmidi.com/) | large general archive |
+
+piano-midi.de is a commonly recommended source but serves no HTTPS at all and
+blocks non-browser requests, so it is not linked from the app — a plain-HTTP
+link from an HTTPS page is mixed content.
 
 **Copyright is the real constraint, not the format.** A MIDI arrangement of a
 modern pop song is a derivative work. Downloading one to practise at home is
