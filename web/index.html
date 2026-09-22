@@ -11,15 +11,24 @@
   <body>
     <!-- Landing ------------------------------------------------------------>
     <main id="view-landing" class="view">
+      <div class="aurora" aria-hidden="true">
+        <span></span><span></span><span></span>
+      </div>
+
       <header class="masthead">
-        <h1>piano&#8209;coach</h1>
+        <div class="keys-motif" aria-hidden="true">
+          <i></i><i class="b"></i><i></i><i class="b"></i><i></i><i></i>
+          <i class="b"></i><i></i><i class="b"></i><i></i><i class="b"></i><i></i>
+        </div>
+        <h1><span>piano</span><em>coach</em></h1>
         <p class="tagline">
-          Play a real piano. The notes wait at the line until you play them.
+          Play a real piano. The notes <b>wait at the line</b> until you play them.
         </p>
+        <p class="sub">Listens through your microphone &middot; nothing to install</p>
       </header>
 
       <section class="panel">
-        <h2>1 &middot; Pick something to play</h2>
+        <h2><span class="badge">1</span> Pick something to play</h2>
         <ul id="song-list" class="song-list"></ul>
         <label class="file-drop">
           <input type="file" id="file-input" accept=".mid,.midi" hidden />
@@ -28,18 +37,17 @@
       </section>
 
       <section class="panel">
-        <h2>2 &middot; Which hand?</h2>
+        <h2><span class="badge">2</span> Which hand?</h2>
         <div class="segmented" id="hand-select" role="radiogroup" aria-label="Hand">
           <button role="radio" data-hand="right" aria-checked="true" class="on">Right</button>
           <button role="radio" data-hand="left" aria-checked="false">Left</button>
           <button role="radio" data-hand="both" aria-checked="false">Both</button>
         </div>
         <p class="hint">
-          Starting with one hand is the recommendation in DECISIONS&nbsp;C &mdash; one
-          stream, one verification target.
+          One hand first &mdash; one stream, one verification target.
         </p>
 
-        <h2 style="margin-top:18px">How much of it?</h2>
+        <h2 class="sub-head"><span class="badge">3</span> How much of it?</h2>
         <div class="segmented" id="difficulty-select" role="radiogroup" aria-label="Difficulty">
           <button role="radio" data-level="melody" aria-checked="false"
                   title="One note per step — the melody">Melody</button>
@@ -49,17 +57,16 @@
                   title="Every note as written">Full</button>
         </div>
         <p class="hint">
-          Every note of a step must sound before it advances, so a downloaded
-          arrangement with big chords can be unclearable one note at a time.
-          Thinning is the way through &mdash; and dense chords are where detection
-          is weakest anyway.
+          Every note of a step must sound before it advances, so a big-chord
+          arrangement can be unclearable one note at a time. Thinning is the way
+          through &mdash; and dense chords are where detection is weakest anyway.
         </p>
       </section>
 
       <section class="panel">
-        <h2>3 &middot; Start</h2>
+        <h2><span class="badge">4</span> Start</h2>
         <button id="start-mic" class="primary" disabled>
-          Enable microphone &amp; start
+          <span>Enable microphone &amp; start</span>
         </button>
         <button id="start-silent" class="secondary" disabled>
           Practice without microphone
