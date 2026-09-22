@@ -1,5 +1,8 @@
 # piano-coach
 
+**Live: https://piano-coach.sr5.workers.dev/**
+
+
 A wait-mode piano learning **web page**. It listens to a real piano through the
 microphone, shows falling notes, and waits for the correct notes before
 advancing. No install, no MIDI hardware, no backend.
@@ -39,6 +42,9 @@ into a number — and the tuned constants then flow into
 ```bash
 # The app
 cd web && npm install && npm test && npm run dev
+
+# Deploy (Cloudflare Workers static assets; needs `npx wrangler login` once)
+cd web && npm run deploy
 
 # The gate — ten minutes at a real piano
 uv run pytest                          # the maths, on synthetic signals

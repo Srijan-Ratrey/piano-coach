@@ -1,5 +1,8 @@
 # The browser app
 
+**Live: https://piano-coach.sr5.workers.dev/**
+
+
 The wait-mode piano-roll: falling note bars that stop at the keyboard line and
 wait until you play them on a real piano.
 
@@ -12,6 +15,23 @@ npm run dev     # http://localhost:5173
 `localhost` is not a convenience: `getUserMedia` is blocked on plain HTTP
 everywhere except localhost, so a plain LAN IP will silently fail to get the
 microphone. Testing on a phone needs HTTPS.
+
+## Deploying
+
+    cd web && npm run deploy          # after `npx wrangler login` once
+
+Static assets on Cloudflare, no Worker script — see `wrangler.jsonc`.
+
+**Check more than the front page afterwards.** A deploy can land `index.html`
+while the asset upload fails, which looks fine at a glance — the URL answers
+200 — and is completely broken: no JS, no worklet, no songs. One command that
+actually checks:
+
+    for p in / /capture-worklet.js /midi/index.json; do \
+      curl -s -o /dev/null -w "$p %{http_code}\n" https://<your-url>$p; done
+
+All three must be 200. The worklet is the one that matters most: without it the
+microphone cannot start at all.
 
 ---
 
