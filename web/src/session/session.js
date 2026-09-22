@@ -6,16 +6,16 @@
  *
  * ## One clock
  *
- * Both modes are the same mechanism. Song time advances at a constant rate
- * scaled by tempo, and the only difference is whether that clock is clamped at
+ * Both modes run one clock at `dt * tempo`, and differ only in what happens at
  * the current step:
  *
- *     songTime += dt * tempo
- *     WAIT:  songTime = min(songTime, currentStep.time)
- *     PLAY:  unclamped
+ *     PLAY:  unclamped — the clock is the music, exactly
+ *     WAIT:  eased across the gap, coming to rest on the line (`_waitScroll`)
  *
  * Two separate clocks would drift apart the moment either mode was touched, so
- * there is deliberately only one.
+ * there is deliberately only one. WAIT spends the same `span / tempo` seconds
+ * crossing a gap that PLAY would, so the two agree on rhythm and differ only in
+ * how the motion is distributed inside a gap.
  *
  * ## Why the session owns the clock rather than the renderer
  *
@@ -78,6 +78,12 @@ export class PracticeSession {
     this.startedAt = null;
     this.lastFrame = null;
     this.songTime = 0;
+    // WAIT-mode travel: where the current leg started, how much musical time
+    // has been spent on it, the speed it began at, and the speed right now.
+    this.travelFrom = 0;
+    this.travelled = 0;
+    this.entrySlope = 0;
+    this.rate = 0;
 
     this.loop = null; // {from, to} step index range, or null
   }
@@ -125,6 +131,9 @@ export class PracticeSession {
     // in WAIT mode would render as a note already below the line. Pull it back.
     if (this.mode === WAIT && this.currentStep) {
       this.songTime = Math.min(this.songTime, this.currentStep.time);
+      this.travelFrom = this.songTime;
+      this.travelled = 0;
+      this.entrySlope = 0;
     }
   }
 
@@ -138,13 +147,12 @@ export class PracticeSession {
   tick(dt) {
     if (this.finished || this.paused || dt <= 0) return;
 
-    this.songTime += dt * this.tempo;
-
     if (this.mode === WAIT) {
-      const step = this.currentStep;
-      if (step) this.songTime = Math.min(this.songTime, step.time);
+      this._waitScroll(dt);
       return;
     }
+
+    this.songTime += dt * this.tempo;
 
     // PLAY: steps fall behind the clock whether or not they were played.
     // Guarded by a step count rather than `while (true)` so a pathological
@@ -155,6 +163,54 @@ export class PracticeSession {
       if (this.songTime <= this._passTime(step)) break;
       this._advance('missed');
     }
+  }
+
+  /**
+   * WAIT mode's scroll: eased across the gap rather than clamped at the end.
+   *
+   * This clock is pure animation — the verifier advances steps, never the
+   * clock — so its shape is free to serve the eye without touching musical
+   * timing or detection. It needed shaping: clamping the position with `min()`
+   * gave the scroll a square-wave velocity, full tempo to a standstill and back
+   * in a single frame roughly twice a second, which reads as stutter however
+   * steady the frame rate is. PLAY's clock is the music and is left exact.
+   *
+   * The easing is applied to *progress through the gap*, not to the rate, and
+   * that distinction is the whole point. Ramping the rate up and down would add
+   * its ramp time to every gap — a fixed cost that compresses the contrast
+   * between a sixteenth and a whole note, which is the same way the old
+   * fixed-time-constant renderer destroyed rhythm. Easing progress spends
+   * exactly `span / tempo` seconds whatever the span, so it comes to rest on
+   * the line and still takes twice as long over twice the distance.
+   *
+   * The curve is the cubic through `h(0)=0, h(1)=1, h'(1)=0` that leaves the
+   * start slope free, because a leg does not always begin at rest: a step
+   * confirmed while its bar is still falling — routine in a fast passage, where
+   * the previous note's detection latency lands mid-travel — starts the next
+   * leg at whatever speed the scroll already had. Forcing those to zero would
+   * put back a step change at exactly the tempo where it is most visible. With
+   * `a = 0` this is plain smoothstep.
+   */
+  _waitScroll(dt) {
+    const step = this.currentStep;
+    if (!step) {
+      this.songTime += dt * this.tempo;
+      return;
+    }
+    const span = step.time - this.travelFrom;
+    if (span <= 0) {
+      this.songTime = step.time;
+      this.rate = 0;
+      return;
+    }
+    this.travelled += dt * this.tempo;
+    const u = Math.min(1, this.travelled / span);
+    const a = this.entrySlope;
+    this.songTime = this.travelFrom + span * (a * u + (3 - 2 * a) * u * u + (a - 2) * u * u * u);
+    // h'(u) factored as (1 - u)(a + (6 - 3a)u): zero at the line by
+    // construction, and non-negative for a <= 3, which is why entry is capped
+    // there — a faster entry would overshoot the line and scroll backwards.
+    this.rate = this.tempo * (1 - u) * (a + (6 - 3 * a) * u);
   }
 
   /**
@@ -261,8 +317,15 @@ export class PracticeSession {
 
     // A rewind is a deliberate navigation, so the clock jumps rather than
     // travelling backwards through the song at tempo.
-    if (rewind) this.songTime = step.time - LEAD_IN_SECONDS;
+    // A rewind is a jump, so no velocity carries across it.
+    if (rewind) {
+      this.songTime = step.time - LEAD_IN_SECONDS;
+      this.rate = 0;
+    }
     if (this.mode === WAIT) this.songTime = Math.min(this.songTime, step.time);
+    this.travelFrom = this.songTime;
+    this.travelled = 0;
+    this.entrySlope = Math.min(3, this.rate / this.tempo);
 
     const target = targetForStep(step, this.params);
     // A step whose notes all fall outside the analysed range cannot be

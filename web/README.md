@@ -118,20 +118,31 @@ lets the session tests run headless.
 
 ## Modes and the one clock
 
-Song time advances at a constant rate scaled by tempo (25–150%, default 100%,
-persisted in `localStorage`). The two modes are the same mechanism with one
-conditional clamp:
+Song time advances at `dt * tempo` (25–150%, default 100%, persisted in
+`localStorage`). One clock, two endings:
 
 ```
-songTime += dt * tempo
-WAIT:  songTime = min(songTime, currentStep.time)   // freeze at the line
 PLAY:  unclamped; notes pass whether or not they were played
+WAIT:  eased across the gap, coming to rest on the line
 ```
 
 Deliberately not two code paths — two clocks would drift apart the first time
 either was touched. WAIT is the default and still advances only on a confirmed
 match (DECISION #8); PLAY is opt-in, gates nothing, and reports misses as
 feedback only.
+
+**WAIT eases progress through the gap, not the rate.** Clamping the position
+with `min()` was correct and looked like stutter: velocity was a square wave,
+full tempo to a standstill and back inside one frame, roughly twice a second.
+But ramping the *rate* instead is a trap — a ramp costs a fixed ~230 ms per gap
+whatever the gap is, so a sixteenth and a whole note grow closer together and
+rhythm flattens, which is the same way the old renderer ruined the motion.
+Easing progress spends exactly `span / tempo` seconds either way. A leg is the
+cubic through `h(0)=0, h(1)=1, h'(1)=0`, entry slope left free so a step
+confirmed while its bar is still falling — routine in a fast passage, where the
+previous note's detection latency lands mid-travel — carries its speed into the
+next leg instead of dropping to zero. Entry is capped at 3× or the curve
+overshoots the line and scrolls backwards.
 
 **The session owns the clock, not the renderer.** `PianoRoll.setScroll()` is
 fed `session.songTime` each frame and tracks it exactly. This matters: the

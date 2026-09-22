@@ -265,6 +265,41 @@ describe('the song clock', () => {
     );
   });
 
+  /**
+   * The motion the eye actually sees. Clamping the position with `min()` gave
+   * the scroll a square-wave velocity — full tempo to a standstill and back in
+   * one frame, roughly twice a second — which reads as stutter no matter how
+   * steady the frame rate is. This pins the profile, not just the endpoints.
+   */
+  test('WAIT: the scroll rate is continuous, never a step change', () => {
+    const song = loadSong('twinkle.mid');
+    const session = new PracticeSession(song, DEFAULT_PARAMS, {});
+    session.start();
+
+    const dt = 1 / 60;
+    let prev = session.songTime;
+    let rate = 0;
+    let worst = 0;
+    let peak = 0;
+    for (let f = 0; f < 60 * 10; f++) {
+      if (f % 45 === 44) session.skip(); // a player confirming every 750 ms
+      session.tick(dt);
+      const next = (session.songTime - prev) / dt;
+      worst = Math.max(worst, Math.abs(next - rate));
+      peak = Math.max(peak, next);
+      rate = next;
+      prev = session.songTime;
+    }
+    assert.ok(peak > 0, 'the clock actually moved');
+    // Stated against peak rate rather than a constant, so it keeps meaning the
+    // same thing if the easing is ever reshaped: no frame may deliver a large
+    // fraction of full speed out of nowhere. The old clamp scored 1.0 here.
+    assert.ok(
+      worst < peak * 0.2,
+      `one frame changed the rate by ${(worst / peak * 100).toFixed(0)}% of full speed`,
+    );
+  });
+
   test('WAIT: confirming lets the clock travel on to the next step', () => {
     const song = loadSong('twinkle.mid');
     const session = new PracticeSession(song, DEFAULT_PARAMS, {});
