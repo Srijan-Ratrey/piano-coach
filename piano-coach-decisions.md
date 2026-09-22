@@ -67,7 +67,7 @@ longer matters of preference. F is settled — see below.
 When verifying a target chord, how hard do you reject *extra* pitches (overtones, neighbouring keys)?
 → *Recommendation:* require all target pitch-classes present AND no unexpected pitch-class louder than a margin. Tune the margin during the spike.
 
-### B. Stability window — **interim value 175 ms; still open**
+### B. Stability window — **interim value 225 ms; still open**
 How many consecutive frames must the target hold before advancing?
 → *Recommendation:* ~200–300 ms. Long enough to reject a brushed key, short enough to feel responsive. Make it a constant to tune.
 → **Reported as laggy in use, so it was measured.** Strike-to-confirmation through the JS port was **323 ms**, and the breakdown put the blame squarely here: the onset was detected at just **+24 ms**, so the 250 ms hold was ~77% of the delay. Two changes brought it to **259 ms** (C4) / **195 ms** (C6):
@@ -75,7 +75,9 @@ How many consecutive frames must the target hold before advancing?
 - `HOP` 2048 → 1024. Pure win, no accuracy trade — the hop is a quantisation error on every verdict, since a confirmation can only be reported on a frame boundary. Costs ~8% of one core (a frame is 0.178 ms measured).
 - `STABILITY_MS` 250 → 175. Scoring the synthetic corpus from 100–300 ms showed recall and false-confirms **completely flat** while latency scaled linearly.
 
-→ **Why this stays open.** That corpus evidence is weak in a specific way: synthetic tones have almost no attack transient, and rejecting transients is exactly what this window is for, so the test is close to blind to the cost of shortening it. 175 ms is a deliberate step back from the measured-free 100 ms. The real corpus settles it. Meanwhile the session exposes a **Response** control (Fast 125 / Balanced 175 / Careful 250) — the right value is hardware-dependent, and letting the player find their own point beats a number picked blind.
+→ **Then FFT_SIZE went to 16384 and this value had to move with it.** A note reads as present for its own duration *plus the analysis window*, so a hold shorter than the window stops testing whether the note was held at all. Doubling the window to 341 ms while leaving the hold at 175 ms made the guard hollow — a 50 ms brush confirmed. Measured: 175 ms accepts a 50 ms brush, 225 ms rejects it and still accepts a 100 ms note, 300 ms rejects both. **225 ms**, with a test pinning `stability_ms > 0.6 × window_ms` so this cannot silently rot again. Found by a failing test, not by reasoning — which is the argument for having had one.
+
+→ **Why this stays open.** The corpus evidence is weak in a specific way: synthetic tones have almost no attack transient, and rejecting transients is exactly what this window is for, so the test is close to blind to the cost of shortening it. The real corpus settles it. Meanwhile the session exposes a **Response** control (Fast 200 / Balanced 225 / Careful 300) — the right value is hardware-dependent, and letting the player find their own point beats a number picked blind.
 
 → Note the remaining ~60 ms before the hold even begins: the 171 ms analysis window has to fill with enough of the note for the chroma to be dominated by it. Only a smaller `FFT_SIZE` would cut that, and it would cost bass resolution, which is already the weakest register.
 

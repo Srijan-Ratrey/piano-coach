@@ -37,7 +37,7 @@ const state = {
   lastTick: 0,
   tempo: 1.0,
   mode: WAIT,
-  responseMs: 175,
+  responseMs: 225,
   difficulty: FULL,
   useMic: false,
   inputMonitor: null,
@@ -519,12 +519,12 @@ try {
   else setTempo(100, { persist: false });
   setMode(localStorage.getItem(MODE_KEY) ?? WAIT, { persist: false });
   const savedResponse = Number(localStorage.getItem(RESPONSE_KEY));
-  setResponse([125, 175, 250].includes(savedResponse) ? savedResponse : 175, { persist: false });
+  setResponse([200, 225, 300].includes(savedResponse) ? savedResponse : 225, { persist: false });
   setDifficulty(localStorage.getItem(DIFFICULTY_KEY) ?? FULL, { persist: false });
 } catch {
   setTempo(100, { persist: false });
   setMode(WAIT, { persist: false });
-  setResponse(175, { persist: false });
+  setResponse(225, { persist: false });
   setDifficulty(FULL, { persist: false });
 }
 

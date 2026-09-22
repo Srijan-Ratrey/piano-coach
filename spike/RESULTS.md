@@ -41,7 +41,7 @@ By register — this is the table that decides between NO-GO and CONSTRAINED GO:
 
 | Register | Recall | Notes |
 |---|---|---|
-| bass (C2) | | *expected to be the weak point: 5.86 Hz bins vs 3.9 Hz semitone spacing* |
+| bass (C2) | | *the register that set FFT_SIZE=16384; 2.93 Hz bins vs a 3.9 Hz semitone gap* |
 | mid | | |
 | treble (C6) | | |
 

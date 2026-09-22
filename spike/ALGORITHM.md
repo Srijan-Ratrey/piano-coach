@@ -26,7 +26,7 @@ a spectrum, and four conditions.
 Input is mono float audio at `SAMPLE_RATE` (48 000 Hz), nominally −1…1.
 
 ```
-frame i  = samples[i*HOP : i*HOP + FFT_SIZE]        FFT_SIZE = 8192, HOP = 2048
+frame i  = samples[i*HOP : i*HOP + FFT_SIZE]        FFT_SIZE = 16384, HOP = 1024
 windowed = frame * hann(FFT_SIZE)
 spectrum = |rfft(windowed)|                          → FFT_SIZE/2 + 1 magnitudes
 ```
@@ -49,8 +49,12 @@ every tuned threshold. `golden.json → checks.hann_periodic_8` pins it.
 Magnitudes, not power. Chroma sums them linearly, and squaring would
 over-weight the loudest partial, changing what the harmonic weights mean.
 
-Derived: bin width `SAMPLE_RATE/FFT_SIZE` = **5.859 Hz**; window
-**170.7 ms**; frame interval **42.67 ms**.
+Derived: bin width `SAMPLE_RATE/FFT_SIZE` = **2.93 Hz**; window **341 ms**;
+frame interval **21.3 ms**.
+
+The bin width is set by the bass. A semitone at C2 spans 3.9 Hz, so 8192's
+5.86 Hz bins were wider than the interval they had to resolve and C2 was
+unresolvable at any threshold.
 
 ---
 
@@ -81,8 +85,8 @@ Harmonics whose centre bin falls below bin 1 or above Nyquist are skipped.
 
 Four decisions in that block, each load-bearing:
 
-**Tolerance in cents, not bins.** A fixed ±1-bin window is ±5.86 Hz at every
-pitch — about a third of a semitone at C5, but nearly two semitones at G2. With
+**Tolerance in cents, not bins.** A fixed ±1-bin window is the same number of
+Hz at every pitch — about a third of a semitone at C5, but nearly two semitones at G2. With
 a fixed window the bass literally cannot separate neighbouring keys. Measured
 on the synthetic corpus before the fix: a played G3 caused F#3 and G#3 to
 register at ~80% of G3's own energy. A constant *ratio* keeps adjacent

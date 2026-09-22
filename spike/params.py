@@ -26,14 +26,26 @@ which keeps the port honest."""
 
 # --- Analysis window -------------------------------------------------------
 
-FFT_SIZE = 8192
-"""Samples. At 48 kHz this is a 170.7 ms window with 5.86 Hz bin spacing.
+FFT_SIZE = 16384
+"""Samples. At 48 kHz this is a 341 ms window with 2.93 Hz bin spacing.
 
-This is the single most consequential constant. Semitone spacing near C2
-(65.41 Hz) is only ~3.9 Hz — *narrower than one bin* — so the bass register is
-expected to be the weak point. `sweep.py` also tries 16384 (2.93 Hz bins,
-341 ms window) to measure what the extra resolution buys and what it costs in
-latency."""
+The single most consequential constant, and the bass register decides it.
+Semitone spacing at C2 (65.41 Hz) is only ~3.9 Hz. At 8192 the bins are
+5.86 Hz — *wider than the interval they must resolve* — so C2 was not merely
+hard, it was unresolvable: no threshold can recover information the transform
+discarded. At 16384 the bins are 2.93 Hz and the interval reappears.
+
+Raised from 8192 after measuring both on the synthetic corpus:
+
+    8192    recall 72.4%   C2 never confirms   median latency 235 ms
+    16384   recall 93.1%   C2 confirms         median latency 256 ms
+
+21 ms for 21 points of recall. The window doubling costs more in principle —
+it takes twice as long to fill with a struck note — but the stability hold
+still dominates, so the measured latency barely moves.
+
+Cost: 0.39 ms per frame against 0.16 ms, about 18% of one core at 47 frames/s
+rather than 8%. Affordable in a browser alongside canvas rendering."""
 
 HOP = 1024
 """Samples between successive frames — 21.3 ms at 48 kHz.
@@ -44,14 +56,17 @@ confirmation could sit up to 42.7 ms late for no reason other than when the
 frames happened to fall. This is the one latency lever with no accuracy cost —
 it changes *when* the answer is available, not what the answer is.
 
-Measured cost of the extra frames: one frame (8192-point FFT plus chroma) takes
-0.178 ms, so 47 frames/s is about 8% of one core. Affordable in a browser
+Measured cost of the extra frames: one frame (16384-point FFT plus chroma)
+takes 0.39 ms, so 47 frames/s is about 18% of one core. Affordable in a browser
 alongside rendering."""
 
 # --- Pitch range -----------------------------------------------------------
 
 MIDI_LOW = 36
-"""C2, 65.41 Hz. Below this an 8192-point FFT cannot separate semitones."""
+"""C2, 65.41 Hz. Below this even a 16384-point FFT cannot separate semitones:
+the gap to the next semitone shrinks below one 2.93 Hz bin. Lowering this
+without raising FFT_SIZE reintroduces exactly the bass failure that raising
+FFT_SIZE just fixed — pinned by a test."""
 
 MIDI_HIGH = 96
 """C7, 2093 Hz. Fundamentals above this are rare in the target repertoire and
@@ -73,11 +88,11 @@ NEIGHBOURHOOD_CENTS = 25.0
 
 Absorbs instrument tuning offsets and the fact that a partial rarely lands dead
 centre in a bin. Specified in cents rather than bins because a fixed bin count
-means completely different things at different pitches: ±1 bin is ±5.86 Hz
-everywhere, which is a third of a semitone at C5 but nearly *two* semitones at
-G2. A fixed-bin window therefore lets neighbouring bass notes read each other's
-energy — measured directly on the synthetic corpus, where a G3 caused F#3 and
-G#3 to register at 80% of its own strength.
+means completely different things at different pitches: ±1 bin is a fixed
+number of Hz everywhere, which is a small fraction of a semitone in the treble
+but a large one in the bass. A fixed-bin window therefore lets neighbouring bass
+notes read each other's energy — measured directly on the synthetic corpus,
+where a G3 caused F#3 and G#3 to register at 80% of its own strength.
 
 25 cents is a quarter of a semitone either side, so the bands of adjacent
 semitones never overlap at any pitch — generous enough for tuning drift and for
@@ -114,20 +129,28 @@ count as a wrong note. That deadband is what stops overtone leakage from
 reading as a played wrong note — which PLAN flags as the failure mode that
 makes everything read 'correct' if you get it wrong in the other direction."""
 
-STABILITY_MS = 175
+STABILITY_MS = 225
 """How long the match condition must hold continuously before confirming.
-Open decision B, and by far the largest term in perceived latency.
+Open decision B, and the largest tunable term in perceived latency.
 
-Measured end-to-end on the JS port: strike to confirmation was 323 ms, of which
-the onset was detected at just +24 ms — so the stability window was ~77% of the
-delay, and it read as sluggish. Scoring the synthetic corpus across 100-300 ms
-showed recall and false-confirms completely flat while latency scaled linearly.
+**This value is bound to FFT_SIZE and cannot be chosen independently of it.**
+A note stays "present" for roughly its own duration *plus the analysis window*,
+because the window keeps seeing it after it stops. So if the hold requirement
+is shorter than the window, it stops testing whether the note was held at all —
+any touch that registers at all satisfies it. At FFT_SIZE 16384 the window is
+341 ms, and at 175 ms a 50 ms brush confirmed. Measured:
 
-Treat that evidence as weak in one specific way: synthetic tones have almost no
-attack transient, and rejecting transients is precisely what this window is
-for. So the corpus cannot see the cost of shortening it. 175 ms is a deliberate
-step back from the measured-free 100 ms, keeping a real margin until the actual
-piano corpus can settle it."""
+    stability   rejects 20 ms   rejects 50 ms   rejects 100 ms
+    175 ms      yes             NO              no
+    225 ms      yes             yes             no
+    300 ms      yes             yes             yes
+
+225 ms is the smallest value that still rejects a brushed key while accepting a
+deliberate short note, which is the line this condition exists to draw. Raising
+FFT_SIZE again means raising this too, or the guard silently goes hollow.
+
+Cost is 43 ms: the corpus scores 93.1% recall either way, at 299 ms rather than
+256 ms."""
 
 # --- Onset gating ----------------------------------------------------------
 

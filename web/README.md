@@ -164,25 +164,32 @@ which is what the keyboard is for.
 
 ## Detection latency
 
-Measured strike-to-confirmation through this code: **259 ms** for C4, **195 ms**
-for C6. Inside the 300–700 ms budget in DECISIONS #3, and it breaks down as:
+Measured strike-to-confirmation through this code: **301 ms** for C4, **237 ms**
+for C6, **472 ms** for C2. All inside the 300–700 ms budget in DECISIONS #3.
 
 | | |
 |---|---|
 | onset detected | +24 ms |
-| chroma becomes dominated by the note | ~+60 ms |
-| stability hold | 175 ms |
+| chroma becomes dominated by the note | window-dependent |
+| stability hold | 225 ms |
 | frame quantisation | up to 21 ms |
 
-The stability hold is the dominant term, so the **Response** control (Fast 125 /
-Balanced 175 / Careful 250 ms) is the dial that matters. Shorter feels quicker
-and is likelier to accept a brushed key or an attack transient. The right value
-is hardware-dependent, and until a corpus is recorded it is not a measured
-number — hence a control rather than a fixed choice.
+**`stabilityMs` is bound to `fftSize` and cannot be picked independently.** A
+note reads as present for its own duration *plus* the 341 ms window, so a hold
+shorter than the window stops testing whether it was held at all. At 175 ms a
+50 ms brush confirmed. 225 ms is the smallest value that still rejects a brush
+while accepting a deliberate short note; there is a test pinning the relation.
 
-The ~60 ms before the hold even starts is inherent: the 171 ms window has to
-fill with enough of the note. Only a smaller `fftSize` would cut it, at the cost
-of bass resolution, which is already the weakest register.
+The **Response** control (Fast 200 / Balanced 225 / Careful 300 ms) is the dial
+that matters. Fast is quicker and *will* accept a brushed key — below ~225 ms
+the guard is hollow at this window. The right value is hardware-dependent and
+not yet measured on a real piano, hence a control rather than a fixed choice.
+
+The delay before the hold even starts is inherent: the 341 ms window has to
+fill with enough of the note. A smaller `fftSize` would cut it, but 8192 cannot
+resolve a semitone at C2 (5.86 Hz bins against a 3.9 Hz gap), so the bass stops
+working entirely. That trade is already measured — see `STABILITY_MS` and
+`FFT_SIZE` in spike/params.py.
 
 **Changing any of these means changing `spike/params.py` too**, then
 `uv run python -m spike.export_golden` and `npm test`. The golden vectors are

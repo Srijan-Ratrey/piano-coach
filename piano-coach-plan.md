@@ -52,7 +52,7 @@ Layer 1 is ~90% of the app and needs no ML. Build it first. Layer 2 is a bolt-on
 ## Feature 1 — key/chord recognition (Layer 1)
 
 **Per audio frame (~every 50 ms):**
-1. `getUserMedia` audio → `AudioContext` → `AnalyserNode` (FFT ~8192 for low-frequency resolution).
+1. `getUserMedia` audio → `AudioContext` → `AnalyserNode` (FFT 16384 — 8192 cannot resolve semitones at C2).
 2. Read the frequency-magnitude spectrum.
 3. Build a **12-bin chroma vector**: for each pitch class, sum energy at its fundamentals across octaves.
 4. **Verify** against the known target step: each target pitch-class must exceed an adaptive, loudness-independent threshold.

@@ -71,10 +71,11 @@ SCRIPT: tuple[Item, ...] = (
         kind="positive",
         register="bass",
         why=(
-            "The bass resolution test. At 5.86 Hz bins a semitone near C2 is "
-            "narrower than one bin, so this is the item most likely to fail. "
-            "If it does, the honest answer is a constrained GO on register, "
-            "not a rewrite."
+            "The bass resolution test, and the item that set FFT_SIZE. At "
+            "8192 it never confirmed — 5.86 Hz bins cannot resolve a 3.9 Hz "
+            "semitone gap — which is why the transform is 16384. If it still "
+            "fails on the real piano, the honest answer is a constrained GO on "
+            "register, not a rewrite."
         ),
         instruction=HOLD,
     ),

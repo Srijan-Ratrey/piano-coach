@@ -175,11 +175,19 @@ def test_room_noise_does_not_fire_an_onset_before_the_strike():
     frames reported room tone as a strike. That armed the verifier before a key
     was touched — and because the analyser used to clear onset history on every
     step change, it would have re-armed for free at every step of a song."""
+    strike_ms = 1000.0
     results = analyse(noisy(struck(tone(60, 2.0), lead_silence=1.0)), (0,), DEFAULT)
     onsets = [r.time_ms for r in results if r.onset]
     assert onsets, "the real strike must still register"
-    assert min(onsets) > 700, (
-        f"onset fired at {min(onsets):.0f} ms, before the 1 s strike"
+
+    # `time_ms` is the frame's START, and a frame spans a whole window, so the
+    # earliest frame that can legitimately see the strike begins one window
+    # before it. Derived rather than hardcoded: a fixed bound silently becomes
+    # wrong the moment FFT_SIZE changes.
+    earliest_legitimate = strike_ms - DEFAULT.window_ms
+    assert min(onsets) > earliest_legitimate, (
+        f"onset fired at {min(onsets):.0f} ms; nothing before "
+        f"{earliest_legitimate:.0f} ms can have seen the {strike_ms:.0f} ms strike"
     )
 
 
@@ -331,6 +339,24 @@ def test_stability_frames_derivation():
     )
 
 
+def test_stability_window_outlasts_the_analysis_window():
+    """The hold requirement must exceed the analysis window, or it is hollow.
+
+    A note reads as "present" for roughly its own duration PLUS the window,
+    because the window keeps seeing it after it stops. So if the hold is
+    shorter than the window, every touch that registers at all satisfies it and
+    the condition stops testing anything. Raising FFT_SIZE to 16384 without
+    raising STABILITY_MS did exactly that: a 50 ms brush confirmed.
+
+    Caught by a failing test rather than by reasoning, which is the argument
+    for having it.
+    """
+    assert DEFAULT.stability_ms > DEFAULT.window_ms * 0.6, (
+        f"hold is {DEFAULT.stability_ms:.0f} ms against a "
+        f"{DEFAULT.window_ms:.0f} ms window — a brushed key will confirm"
+    )
+
+
 def test_latency_budget_is_within_the_documented_limit():
     """DECISIONS #3 budgets 300-700 ms to confirm. The floor is the stability
     window plus one frame of quantisation plus the time for the attack to fill
@@ -348,13 +374,25 @@ def test_onset_median_window_is_about_nine_tenths_of_a_second():
     assert 700 < span_ms < 1200, f"adaptive median spans {span_ms:.0f} ms"
 
 
-def test_bin_width_matches_the_documented_resolution_risk():
-    """5.86 Hz bins vs ~3.9 Hz semitone spacing at C2 — the bass problem is
-    arithmetic, not opinion, so it gets pinned here."""
-    assert DEFAULT.bin_hz == pytest.approx(5.859, abs=1e-3)
-    c2 = float(midi_to_hz(36))
-    csharp2 = float(midi_to_hz(37))
-    assert (csharp2 - c2) < DEFAULT.bin_hz
+def test_bins_resolve_a_semitone_at_the_lowest_analysed_note():
+    """The bass limit is arithmetic, not tuning.
+
+    At the lowest note analysed, the gap to the next semitone must be wider
+    than one bin — otherwise that note is unresolvable at *any* threshold,
+    because the transform has already discarded the distinction. FFT_SIZE 8192
+    failed this (5.86 Hz bins against a 3.9 Hz gap at C2) and C2 never
+    confirmed; 16384 passes it.
+
+    Derived rather than hardcoded, so it fails if anyone shrinks FFT_SIZE or
+    lowers MIDI_LOW back past the limit.
+    """
+    lowest = float(midi_to_hz(DEFAULT.midi_low))
+    next_semitone = float(midi_to_hz(DEFAULT.midi_low + 1))
+    gap = next_semitone - lowest
+    assert gap > DEFAULT.bin_hz, (
+        f"semitone gap at MIDI {DEFAULT.midi_low} is {gap:.2f} Hz but bins are "
+        f"{DEFAULT.bin_hz:.2f} Hz — that register cannot work"
+    )
 
 
 def test_params_but_is_a_copy():
