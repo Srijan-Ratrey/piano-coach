@@ -15,7 +15,10 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest>=8.3"]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.16.9",
+]
 
 [tool.uv]
 # The spike is a set of scripts run as `python -m spike.<name>`, not a library
